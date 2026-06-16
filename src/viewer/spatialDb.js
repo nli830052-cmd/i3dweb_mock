@@ -1,0 +1,24 @@
+/* ============================================================
+ *  src/viewer/spatialDb.js  —  [솔루션팀 영역 · Walkinside 공간 데이터(mock)]
+ *  작업 공간/높이/추락위험 등 공간 측정값 stand-in.
+ *  실제 연동 시 Walkinside 공간 질의 API로 교체.
+ *
+ *  공개 API:
+ *    SpatialDB.query(tag) -> { clearance:{front,right}, height, fallHazard } | null
+ *
+ *  참고: 정비 이력(CMMS)은 AI팀 소유, 공간 데이터는 솔루션팀(Walkinside) 소유.
+ * ========================================================== */
+(function () {
+  "use strict";
+
+  const SPATIAL = {
+    "GV-101A": { clearance: { front: 1.2, right: 0.8 }, height: 2.3, fallHazard: { exists: true, dir: "좌측", distM: 2, type: "개구부 위험 구역" } },
+    "TG-VLV-205": { clearance: { front: 1.5, right: 1.2 }, height: 1.6, fallHazard: { exists: false } },
+    "GV-102A": { clearance: { front: 1.0, right: 0.6 }, height: 0.9, fallHazard: { exists: false } },
+    "TG-PMP-101": { clearance: { front: 1.4, right: 1.0 }, height: 1.1, fallHazard: { exists: false } }
+  };
+
+  function query(tag) { return SPATIAL[tag] || null; }
+
+  window.SpatialDB = { query, SPATIAL };
+})();

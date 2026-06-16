@@ -45,6 +45,10 @@
           <button data-ex="이 밸브는 다음 정비 예정일이 언제야?">다음예정일 (RAG)</button>
           <button data-ex="정비 주기 기준으로 우선 점검해야 할 부품 알려줘">우선부품 (RAG)</button>
           <button data-ex="최근 누설 이력을 고려하면 그랜드패킹을 교체해야 해?">교체검토 (RAG)</button>
+          <button data-ex="이 Globe Valve 주변 작업 공간 충분해?">작업공간 (공간)</button>
+          <button data-ex="이 밸브는 2m 이상 고소작업에 해당돼?">고소작업 (공간)</button>
+          <button data-ex="이 밸브 주변에 추락 위험이나 개구부가 있어?">추락위험 (공간)</button>
+          <button data-ex="이 밸브 정비 구역을 화면에 표시해줘">정비구역 (ACTION)</button>
           <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
           <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
           <button id="exServerError">❌ 백엔드 500</button>
@@ -108,6 +112,7 @@
 <script src="src/ai/maintenanceDb.js"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS/RAG) -->
 <script src="src/ai/classifier.js"></script>        <!-- [AI팀]   AiBackend -->
 <script src="src/viewer/mockViewer.js"></script>    <!-- [솔루션팀] ViewerSDK -->
+<script src="src/viewer/spatialDb.js"></script>     <!-- [솔루션팀] SpatialDB (mock Walkinside 공간) -->
 <script src="src/core/actionExecutor.js"></script>  <!-- [연결고리] ActionExecutor -->
 <script src="src/ui/app.js"></script>               <!-- [UI/Front] 진입점 + 렌더링 -->
 </body>

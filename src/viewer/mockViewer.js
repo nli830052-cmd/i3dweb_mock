@@ -207,6 +207,19 @@
     return { ok: true, tag: t, message: `${t} 점검자 위치 표시 (우측 점검공간)` };
   }
 
+  /* ── [작업 조건] 정비 작업 구역 표시 ──────────────────── */
+  function showWorkZone(tag) {
+    log("showWorkZone", tag); state.info = "";
+    const t = tag || state.selected || "GV-101A";
+    const o = byTag(t);
+    if (!o) return { ok: false, error: "TAG_NOT_FOUND", message: `${t} 설비를 찾을 수 없습니다.` };
+    state.selected = t; state.visible.add(t);
+    renderTag(t, "SHOW_WORK_ZONE · 작업 구역", false);
+    renderInfo(`🚧 정비 작업 구역 표시 · <b>${t}</b> · 작업 반경 설비 중심 기준 약 <b>2m</b>`);
+    render("moved");
+    return { ok: true, tag: t, radiusM: 2, message: `${t} 정비 작업 구역 표시 (반경 2m)` };
+  }
+
   /* ── 매칭 헬퍼 ───────────────────────────────────────── */
   function matchObjects(query) {
     const q = (query || "").toLowerCase();
@@ -285,6 +298,7 @@
   window.ViewerSDK = {
     jumpToTag, searchEquipment, rotateView, hide, show, isolateSystem, filterByType,
     moveToInspection, showPath, showInspectionRoute, findNearest, showWorkerPosition,
+    showWorkZone,
     KNOWN_TAGS, SCENE
   };
 })();

@@ -59,6 +59,7 @@
 | `SHOW_INSPECTION_ROUTE` | 오늘 점검 순서 안내 | (없음) | `showInspectionRoute()` |
 | `FIND_NEAREST` | 최근접 점검 대상 | `params:{filter:"inspection"}` | `findNearest()` |
 | `SHOW_WORKER_POSITION` | 점검자 위치 표시 | `targetValue`(null=선택) | `showWorkerPosition(tag)` |
+| `SHOW_WORK_ZONE` | 정비 작업 구역 표시 | `targetValue`(null=선택) | `showWorkZone(tag)` |
 
 > 액션별 SDK 매핑은 `src/core/actionExecutor.js` 레지스트리에서 관리한다(신규 추가 = register 한 줄).
 > `targetType`(TAG/TYPE/ALL), 타입코드(PUMP/VALVE/MOTOR/BEARING/HEATEX/TANK)는 mock 기준.
@@ -115,6 +116,9 @@ Viewer 액션이 아닌 **답변 전용**. 응답에 출처/조회 trace 필드�
 
 > 4차(교체/정비 주기)도 동일한 grounded ANSWER 형식을 사용한다(`retrieval.source = "CMMS·정비주기 DB"`).
 > 주기 초과 판정은 `lastMaintenance + cycleMonths` vs 현재 날짜로 동적 계산.
+>
+> 5차(작업 조건)는 출처가 **Walkinside 공간 데이터(솔루션팀)** 이므로 `retrieval.owner = "sol"` 로 표시된다
+> (CMMS=AI팀 `owner` 생략 시 기본 "ai"). 흐름 패널에서 데이터 조회 단계의 소유 팀이 구분된다.
 
 ## 3. targetType
 

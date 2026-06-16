@@ -81,13 +81,19 @@
       return mkAction("SEARCH_EQUIPMENT", action({ type: "SEARCH_EQUIPMENT", query: query }),
         `"${query}" 설비를 검색합니다. 가장 가까운 설비로 이동하고 속성정보를 표시합니다.`);
     }
-    // ── 2차: 작업 위치 안내 ─────────────────────────────
-    // (a) 고소작업 / 사다리·발판 → ANSWER (공간 조건)
-    if (has(text, ["사다리", "작업 발판", "작업발판", "발판", "고소작업"])) {
-      return { responseType: "ANSWER", message: "작업 위치 안전 조건을 확인합니다.",
-        answer: "선택 설비의 작업 위치 높이는 약 2.3m입니다. 2m 이상 고소작업 기준에 해당하므로 작업발판 또는 안전대 등 안전조치가 필요합니다. (mock · 실제는 Walkinside 높이 측정 연계)",
-        actions: [], confidence: 0.84 };
+    // ── 5차: 작업 조건 (공간/높이/추락 — Walkinside 공간 데이터) ──
+    // (정비 구역 표시 = ACTION)
+    if (text.includes("정비 구역") || (text.includes("작업") && text.includes("구역") && has(text, ["표시", "보여"]))) {
+      return mkAction("SHOW_WORK_ZONE", action({ type: "SHOW_WORK_ZONE", targetValue: tag }),
+        "선택한 설비 주변에 정비 작업 구역을 표시합니다. 작업 반경은 설비 중심 기준 약 2m입니다.");
     }
+    // (공간/간섭/발판/고소작업/추락 = 공간조건 grounded ANSWER)
+    if (has(text, ["작업 공간", "공간 충분", "공간이", "간섭", "사다리", "작업 발판", "작업발판", "발판", "고소작업", "추락", "개구부", "2m 이상"])) {
+      const t = tag || (request.viewerContext && request.viewerContext.currentTag) || "GV-101A";
+      return buildWorkConditionAnswer(t, text);
+    }
+
+    // ── 2차: 작업 위치 안내 ─────────────────────────────
     // (b) 오늘 점검 순서 안내 → SHOW_INSPECTION_ROUTE
     if (text.includes("점검") && has(text, ["순서", "동선", "루트"])) {
       return mkAction("SHOW_INSPECTION_ROUTE", action({ type: "SHOW_INSPECTION_ROUTE" }),
@@ -240,6 +246,34 @@
         { documentName: "정비 지침서", section: rec.name, page: null }
       ],
       retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
+  }
+
+  /* ── 5차: 작업 조건 (Walkinside 공간 데이터 기반 grounded ANSWER) ── */
+  function buildWorkConditionAnswer(tag, text) {
+    const rec = (window.SpatialDB && window.SpatialDB.query(tag)) || null;
+    if (!rec) {
+      return { responseType: "ANSWER", message: `${tag} 작업 조건을 확인합니다.`,
+        answer: `${tag}의 공간 데이터가 없습니다. (mock · Walkinside 연계 필요)`,
+        actions: [], confidence: 0.6, grounded: false, sources: [],
+        retrieval: { source: "Walkinside 공간 데이터", query: `tag=${tag}`, hitCount: 0, owner: "sol" } };
+    }
+    let answer;
+    if (text.includes("추락") || text.includes("개구부")) {
+      answer = rec.fallHazard.exists
+        ? `현재 설비 기준 ${rec.fallHazard.dir} 약 ${rec.fallHazard.distM}m 지점에 ${rec.fallHazard.type}이(가) 있습니다. 작업 시 출입 제한 표시와 추락 방지 조치가 필요합니다.`
+        : "현재 설비 주변에 등록된 추락 위험 구역이나 개구부는 확인되지 않습니다.";
+    } else if (has(text, ["발판", "고소작업", "2m 이상", "사다리"])) {
+      answer = rec.height >= 2
+        ? `작업 위치 높이는 약 ${rec.height}m입니다. 2m 이상 고소작업 기준에 해당하므로 작업발판 또는 안전대 등 안전조치가 필요합니다.`
+        : `작업 위치 높이는 약 ${rec.height}m입니다. 2m 미만으로 고소작업 기준에는 해당하지 않습니다.`;
+    } else {
+      answer = `작업 가능 공간은 전면 약 ${rec.clearance.front}m, 우측 약 ${rec.clearance.right}m입니다.` +
+        (rec.clearance.right < 1 ? " 우측 공간이 좁아 공구 사용 시 간섭 가능성이 있습니다." : "");
+    }
+    return { responseType: "ANSWER", message: `${tag} 작업 조건을 확인합니다.`, answer: answer, actions: [],
+      confidence: 0.85, grounded: true,
+      sources: [{ documentName: "Walkinside 공간측정", section: tag, page: null }],
+      retrieval: { source: "Walkinside 공간 데이터", query: `tag=${tag}`, hitCount: 1, owner: "sol" } };
   }
 
   function mkAnswer(tag, type, text) {

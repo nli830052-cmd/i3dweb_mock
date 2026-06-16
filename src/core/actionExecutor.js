@@ -115,5 +115,13 @@
     call: (a) => ViewerSDK.showWorkerPosition(a.targetValue)
   });
 
+  // ── 3차(작업 조건): 정비 작업 구역 표시 ──────────────────
+  register("SHOW_WORK_ZONE", {
+    method: "showWorkZone",
+    summary: (a) => q(a.targetValue || "선택"),
+    args: (a) => ({ targetValue: a.targetValue }),
+    call: (a) => ViewerSDK.showWorkZone(a.targetValue)
+  });
+
   window.ActionExecutor = { register, executeAction, describe };
 })();

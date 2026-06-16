@@ -61,10 +61,11 @@
 
     // [2a] (grounded 응답 시) AI 백엔드 내부 RAG/CMMS 조회 — AI팀 영역
     if (res.retrieval) {
-      pushFlow({ owner: "ai", dir: "req", transport: "data",
+      const downer = res.retrieval.owner || "ai"; // CMMS=AI팀 / Walkinside 공간=솔루션팀
+      pushFlow({ owner: downer, dir: "req", transport: "data",
         endpoint: `query(${res.retrieval.query})`, meta: res.retrieval.source,
         payload: { source: res.retrieval.source, query: res.retrieval.query } });
-      pushFlow({ owner: "ai", dir: "res", transport: "data",
+      pushFlow({ owner: downer, dir: "res", transport: "data",
         endpoint: `${res.retrieval.hitCount} record(s) · grounded=${!!res.grounded}`, meta: "~30ms",
         payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, sources: res.sources || [] } });
     }
@@ -199,7 +200,7 @@
     wrap.className = "flow" + (error ? " error" : "");
     const dirClass = (dir === "res" && error) ? "errres" : dir;
     const dirLabel = dir === "req" ? "요청 ▶" : "◀ 응답";
-    const transportLabel = { http: "HTTP", sdk: "Viewer SDK", data: "정비이력 DB" }[transport] || transport;
+    const transportLabel = { http: "HTTP", sdk: "Viewer SDK", data: "DATA" }[transport] || transport;
     const ownerLabel = owner === "ai" ? "AI팀" : "솔루션팀";
     wrap.innerHTML =
       `<div class="flow-head">` +
