@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>i3DWEB AI Action Test Page</title>
+<link rel="stylesheet" href="src/ui/styles.css" />
+</head>
+<body>
+<header>
+  <h1>i3DWEB AI Action Test Page</h1>
+  <p>채팅 입력 → AI 응답(JSON) → responseType 분기 → Mock Viewer 실행 흐름 데모 · 1차: JUMP_TO / TAG only</p>
+</header>
+
+<div class="layout">
+  <!-- LEFT -->
+  <div class="col">
+    <div class="card">
+      <h2>1 · 사용자 입력</h2>
+      <div class="body">
+        <div class="input-row">
+          <input id="userInput" type="text" placeholder="예: TG-BRG-002 위치로 이동해줘" autocomplete="off" />
+          <button class="send" id="sendBtn">Send</button>
+        </div>
+        <div class="examples">
+          <button data-ex="TG-BRG-002 위치로 이동해줘">이동 (ACTION)</button>
+          <button data-ex="TG-PMP-101 찾아줘">찾기 (ACTION)</button>
+          <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
+          <button data-ex="TG-BRG-002로 이동하고 점검 절차도 알려줘">이동+설명 (둘 다)</button>
+          <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그 (Viewer 실패)</button>
+          <button id="exServerError">❌ 백엔드 500 에러</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2 · API 흐름 (요청 / 응답)</h2>
+      <div class="body">
+        <div class="lane">
+          <span class="owner ai">AI팀</span> Frontend ⇄ AI 백엔드 (HTTP) ·
+          <span class="owner sol">솔루션팀</span> Frontend ⇄ i3DWEB Viewer (SDK call)
+          <br>각 단계를 클릭하면 payload를 펼쳐볼 수 있어요. (현재는 mock — 실제 호출 시 동일 계약 유지)
+        </div>
+        <div id="apiFlow"><div class="empty">입력을 보내면 API 시퀀스가 표시됩니다.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3 · 챗봇 응답</h2>
+      <div class="body">
+        <div id="chat"><div class="empty">아직 대화가 없습니다.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>4 · AI 응답 JSON</h2>
+      <div class="body"><pre id="jsonOut" class="empty">// 입력을 기다리는 중...</pre></div>
+    </div>
+
+    <div class="card">
+      <h2>5 · Action 실행 로그</h2>
+      <div class="body"><pre id="logOut" class="empty">// 액션 실행 시 여기에 표시됩니다.</pre></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="col">
+    <div class="card" style="flex:1; display:flex; flex-direction:column;">
+      <h2>6 · Mock Viewer</h2>
+      <div class="viewer" id="viewer" style="flex:1;">
+        <div class="cube">📦</div>
+        <div>
+          <div class="label">현재 선택된 TAG</div>
+          <div class="tag" id="viewerTag">—</div>
+        </div>
+        <div class="status idle" id="viewerStatus">대기 중 (idle)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 모듈 로드 순서: AI(백엔드) → Viewer(SDK) → ActionExecutor(연결고리) → UI(오케스트레이션) -->
+<script src="src/ai/classifier.js"></script>        <!-- [AI팀]   AiBackend -->
+<script src="src/viewer/mockViewer.js"></script>    <!-- [솔루션팀] ViewerSDK -->
+<script src="src/core/actionExecutor.js"></script>  <!-- [연결고리] ActionExecutor -->
+<script src="src/ui/app.js"></script>               <!-- [UI/Front] 진입점 + 렌더링 -->
+</body>
+</html>
