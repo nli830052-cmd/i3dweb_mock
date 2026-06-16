@@ -100,6 +100,8 @@ button.send:hover { filter: brightness(1.1); }
 .badge.ACTION { background: rgba(79,156,249,.2); color: var(--accent); }
 .badge.ANSWER_WITH_ACTION { background: rgba(163,113,247,.2); color: var(--purple); }
 .msg .ans { margin-top: 6px; color: var(--text); }
+.msg .src { margin-top: 6px; font-size: 11px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 5px; }
+.badge.GROUNDED { background: rgba(63,185,80,.18); color: #56d364; margin-left: 4px; }
 .empty { color: var(--muted); font-size: 13px; font-style: italic; }
 
 /* code blocks */
@@ -180,6 +182,7 @@ pre {
 }
 .transport.http { color: var(--accent); border-color: rgba(79,156,249,.4); }
 .transport.sdk  { color: var(--purple); border-color: rgba(163,113,247,.4); }
+.transport.data { color: #56d364; border-color: rgba(63,185,80,.4); }
 .flow .endpoint { font-family: monospace; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .flow .meta { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .flow .toggle { color: var(--muted); font-size: 10px; }

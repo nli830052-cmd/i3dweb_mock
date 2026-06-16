@@ -37,6 +37,10 @@
           <button data-ex="이 펌프 점검자가 서야 하는 위치 보여줘">점검자위치 (WORKER)</button>
           <button data-ex="비상 탈출 경로 보여줘">비상경로 (PATH)</button>
           <button data-ex="사다리나 작업 발판이 필요한 위치인지 알려줘">고소작업 (ANSWER)</button>
+          <button data-ex="이 밸브의 최근 정비 이력 보여줘">정비이력 (RAG)</button>
+          <button data-ex="이 밸브는 마지막으로 언제 분해 정비했어?">분해정비일 (RAG)</button>
+          <button data-ex="이 밸브에서 과거에 누설 이력이 있었어?">누설이력 (RAG)</button>
+          <button data-ex="이 밸브에 등록된 미조치 사항이나 Open Point 있어?">Open Point (RAG)</button>
           <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
           <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
           <button id="exServerError">❌ 백엔드 500</button>
@@ -97,6 +101,7 @@
 </div>
 
 <!-- 모듈 로드 순서: AI(백엔드) → Viewer(SDK) → ActionExecutor(연결고리) → UI(오케스트레이션) -->
+<script src="src/ai/maintenanceDb.js"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS/RAG) -->
 <script src="src/ai/classifier.js"></script>        <!-- [AI팀]   AiBackend -->
 <script src="src/viewer/mockViewer.js"></script>    <!-- [솔루션팀] ViewerSDK -->
 <script src="src/core/actionExecutor.js"></script>  <!-- [연결고리] ActionExecutor -->

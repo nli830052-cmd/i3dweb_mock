@@ -91,6 +91,28 @@
 { "type": "SHOW_WORKER_POSITION", "targetValue": null, "params": {} }
 ```
 
+### grounded ANSWER (3차 — 정비 이력/상태, RAG·CMMS)
+Viewer 액션이 아닌 **답변 전용**. 응답에 출처/조회 trace 필드가 추가된다(실제 i3dweb_chatbot `ChatResponse`의 `grounded`/`sources`와 정렬).
+```json
+{
+  "responseType": "ANSWER",
+  "message": "GV-101A 정비 이력을 조회합니다.",
+  "answer": "글로브 밸브(GV-101A)의 최근 정비 이력은 ...",
+  "actions": [],
+  "confidence": 0.86,
+  "grounded": true,
+  "sources": [
+    { "documentName": "CMMS 정비이력", "section": "GV-101A", "page": null },
+    { "documentName": "정비 지침서", "section": "글로브 밸브", "page": null }
+  ],
+  "retrieval": { "source": "CMMS·정비이력 DB", "query": "tag=GV-101A", "hitCount": 3 }
+}
+```
+- `grounded` : 근거 데이터로 답했는지(없으면 false)
+- `sources`  : 인용 출처(문서/섹션)
+- `retrieval`: AI 백엔드 내부 조회 trace — API 흐름 패널에서 `정비이력 DB` 단계로 표시
+- 대상 설비: 텍스트 태그 → `viewerContext.currentTag` → 기본값 순으로 결정
+
 ## 3. targetType
 
 1차 테스트에서는 `TAG`만 지원한다.

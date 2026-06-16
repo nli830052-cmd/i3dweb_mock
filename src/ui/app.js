@@ -59,6 +59,16 @@
       return;
     }
 
+    // [2a] (grounded 응답 시) AI 백엔드 내부 RAG/CMMS 조회 — AI팀 영역
+    if (res.retrieval) {
+      pushFlow({ owner: "ai", dir: "req", transport: "data",
+        endpoint: `query(${res.retrieval.query})`, meta: res.retrieval.source,
+        payload: { source: res.retrieval.source, query: res.retrieval.query } });
+      pushFlow({ owner: "ai", dir: "res", transport: "data",
+        endpoint: `${res.retrieval.hitCount} record(s) · grounded=${!!res.grounded}`, meta: "~30ms",
+        payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, sources: res.sources || [] } });
+    }
+
     // [2] AI 백엔드 → Frontend (HTTP 응답) — AI팀 영역
     pushFlow({ owner: "ai", dir: "res", transport: "http", endpoint: "200 OK  ·  /api/ai/chat", meta: "~" + (40 + Math.floor(Math.random() * 60)) + "ms", payload: res });
 
@@ -72,6 +82,14 @@
     renderJson(res);
     if (res.responseType === "ACTION" || res.responseType === "ANSWER_WITH_ACTION") {
       runActions(res);
+    } else if (res.retrieval) {
+      setLog([
+        `responseType: ${res.responseType} (grounded=${!!res.grounded})`,
+        `RAG/CMMS 조회: ${res.retrieval.source}`,
+        `query: ${res.retrieval.query} → ${res.retrieval.hitCount} record(s)`,
+        `출처: ${(res.sources || []).map((s) => s.documentName).join(", ") || "-"}`,
+        "Viewer 동작 없음 (답변 전용)"
+      ]);
     } else {
       setLog([`responseType: ${res.responseType}`, "실행할 action 없음 → 챗봇 답변만 출력", "Viewer 동작 없음"]);
     }
@@ -118,8 +136,12 @@
     bot.className = "msg bot";
     bot.innerHTML =
       `<span class="badge ${res.responseType}">${res.responseType}</span>` +
+      (res.grounded ? `<span class="badge GROUNDED">grounded</span>` : "") +
       `<div>${escapeHtml(res.message)}</div>` +
-      (res.answer ? `<div class="ans">${escapeHtml(res.answer)}</div>` : "");
+      (res.answer ? `<div class="ans">${escapeHtml(res.answer)}</div>` : "") +
+      (res.sources && res.sources.length
+        ? `<div class="src">출처: ${res.sources.map((s) => escapeHtml(s.documentName + (s.section ? " · " + s.section : ""))).join(" / ")}</div>`
+        : "");
     chatEl.appendChild(bot);
     chatEl.scrollTop = chatEl.scrollHeight;
   }
@@ -177,7 +199,7 @@
     wrap.className = "flow" + (error ? " error" : "");
     const dirClass = (dir === "res" && error) ? "errres" : dir;
     const dirLabel = dir === "req" ? "요청 ▶" : "◀ 응답";
-    const transportLabel = transport === "http" ? "HTTP" : "Viewer SDK";
+    const transportLabel = { http: "HTTP", sdk: "Viewer SDK", data: "정비이력 DB" }[transport] || transport;
     const ownerLabel = owner === "ai" ? "AI팀" : "솔루션팀";
     wrap.innerHTML =
       `<div class="flow-head">` +

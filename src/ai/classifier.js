@@ -119,6 +119,13 @@
         target === "EMERGENCY_EXIT" ? "가장 가까운 비상구까지의 경로를 표시합니다." : "선택 대상까지의 경로를 표시합니다.");
     }
 
+    // ── 3차: 정비 이력/상태 (CMMS·RAG 기반 grounded ANSWER) ──
+    // (태그가 있어도 정비 질의면 ANSWER 우선 → JUMP_TO보다 앞)
+    if (isMaintenanceQuery(text)) {
+      const t = tag || (request.viewerContext && request.viewerContext.currentTag) || "GV-101A";
+      return buildMaintenanceAnswer(t, text);
+    }
+
     // 7) 이동 (태그 기반)
     if (tag && has(text, ["이동", "가줘", "가자", "안내", "위치", "찾아", "보여", "데려"])) {
       return mkAction("JUMP_TO", action({ type: "JUMP_TO", targetType: "TAG", targetValue: tag }),
@@ -130,6 +137,53 @@
 
   function mkAction(_label, act, message) {
     return { responseType: "ACTION", message: message, answer: null, actions: [act], confidence: 0.93 };
+  }
+
+  /* ── 3차: 정비 이력 질의 판별 + DB 기반 답변 ───────────── */
+  function isMaintenanceQuery(text) {
+    const low = text.toLowerCase();
+    return has(text, ["이력", "분해 정비", "분해정비", "가스켓", "누설", "고장 유형", "반복", "점검 결과", "정상이", "미조치", "오픈포인트"])
+      || low.includes("open point") || low.includes("openpoint");
+  }
+
+  function buildMaintenanceAnswer(tag, text) {
+    const rec = (window.MaintenanceDB && window.MaintenanceDB.query(tag)) || null;
+    const low = text.toLowerCase();
+    if (!rec) {
+      return { responseType: "ANSWER", message: `${tag} 정비 이력을 조회합니다.`,
+        answer: `${tag}에 대한 정비 이력이 CMMS에 등록되어 있지 않습니다. (mock)`,
+        actions: [], confidence: 0.6, grounded: false, sources: [],
+        retrieval: { source: "CMMS·정비이력 DB", query: `tag=${tag}`, hitCount: 0 } };
+    }
+    let answer;
+    if (text.includes("가스켓")) {
+      answer = rec.bonnetGasket.length
+        ? `보닛 가스켓 교체 이력은 ${rec.bonnetGasket.map((g) => g.date).join(", ")} ${rec.bonnetGasket.length}회 확인됩니다. 이후 추가 교체 이력은 확인되지 않습니다.`
+        : "보닛 가스켓 교체 이력은 확인되지 않습니다.";
+    } else if (text.includes("누설")) {
+      answer = rec.leaks.length
+        ? `과거 누설 이력이 ${rec.leaks.length}건 확인됩니다. ${rec.leaks.map((l) => `${l.date} ${l.part} 부위 누설 (${l.action})`).join("; ")}.`
+        : "과거 누설 이력은 확인되지 않습니다.";
+    } else if (text.includes("반복") || text.includes("고장")) {
+      answer = `최근 이력 기준 반복 이슈는 ${rec.recurring}입니다. 동일 부위 점검 이력이 반복 확인되면 우선 점검이 필요합니다.`;
+    } else if (text.includes("분해") || text.includes("마지막")) {
+      answer = `${tag}의 마지막 분해 정비일은 ${rec.lastOverhaul.date}입니다. 당시 ${rec.lastOverhaul.detail}이(가) 수행되었습니다.`;
+    } else if (text.includes("점검 결과") || text.includes("정상이")) {
+      answer = `최근 점검 결과는 ${rec.inspectionResult}입니다.`;
+    } else if (low.includes("open point") || low.includes("openpoint") || text.includes("미조치") || text.includes("오픈포인트")) {
+      answer = rec.openPoints.length
+        ? `등록된 Open Point가 ${rec.openPoints.length}건 있습니다. 내용은 "${rec.openPoints.map((o) => o.desc).join(", ")}"이며, 조치 예정일은 ${rec.openPoints.map((o) => o.due).join(", ")}입니다.`
+        : "등록된 미조치(Open Point) 사항은 없습니다.";
+    } else {
+      answer = `${rec.name}(${tag})의 최근 정비 이력은 ${rec.history.map((h) => `${h.date} ${h.type}`).join(", ")}입니다.`;
+    }
+    return { responseType: "ANSWER", message: `${tag} 정비 이력을 조회합니다.`, answer: answer, actions: [],
+      confidence: 0.86, grounded: true,
+      sources: [
+        { documentName: "CMMS 정비이력", section: tag, page: null },
+        { documentName: "정비 지침서", section: rec.name, page: null }
+      ],
+      retrieval: { source: "CMMS·정비이력 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
   }
 
   function mkAnswer(tag, type, text) {
