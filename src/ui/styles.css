@@ -201,3 +201,27 @@ pre {
 @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-7px);} 75%{transform:translateX(7px);} }
 .msg.bot.error { border: 1px solid rgba(248,81,73,.4); }
 .badge.ERROR { background: rgba(248,81,73,.2); color: #f85149; }
+
+/* mock viewer — 시점/필터 바 + 객체 씬 */
+.viewer .vtopbar {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: var(--muted);
+  border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 2px;
+}
+.viewer .vtopbar b { color: var(--accent); }
+#viewFilter { color: var(--yellow); }
+.scene {
+  width: 100%; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+  margin-top: 6px;
+}
+.scene .obj {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: monospace; font-size: 11px;
+  padding: 3px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  transition: opacity .25s, border-color .2s, transform .2s;
+}
+.scene .obj .oi { font-size: 12px; }
+.scene .obj.hidden { opacity: .22; text-decoration: line-through; filter: grayscale(1); }
+.scene .obj.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; color: #fff; }
+.scene .obj.hot { border-color: var(--yellow); box-shadow: 0 0 8px rgba(212,167,44,.5); }

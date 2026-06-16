@@ -9,7 +9,7 @@
 <body>
 <header>
   <h1>i3DWEB AI Action Test Page</h1>
-  <p>채팅 입력 → AI 응답(JSON) → responseType 분기 → Mock Viewer 실행 흐름 데모 · 1차: JUMP_TO / TAG only</p>
+  <p>채팅 입력 → AI 응답(JSON) → responseType 분기 → Mock Viewer 실행 · 설비 찾기/이동/숨김/격리/회전 (mock)</p>
 </header>
 
 <div class="layout">
@@ -23,12 +23,16 @@
           <button class="send" id="sendBtn">Send</button>
         </div>
         <div class="examples">
-          <button data-ex="TG-BRG-002 위치로 이동해줘">이동 (ACTION)</button>
-          <button data-ex="TG-PMP-101 찾아줘">찾기 (ACTION)</button>
+          <button data-ex="TG-BRG-002 위치로 이동해줘">이동 (JUMP_TO)</button>
+          <button data-ex="터빈 윤활유 펌프 찾아줘">검색 (SEARCH)</button>
+          <button data-ex="이 장비 뒷면 보여줘">회전 (ROTATE)</button>
+          <button data-ex="밸브가 안 보이게 꺼줘">숨김 (HIDE)</button>
+          <button data-ex="밸브 다시 보여줘">표시 (SHOW)</button>
+          <button data-ex="이 구역에 있는 펌프만 보여줘">타입필터 (FILTER)</button>
+          <button data-ex="선택한 이 계통만 보여줘">계통격리 (ISOLATE)</button>
           <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
-          <button data-ex="TG-BRG-002로 이동하고 점검 절차도 알려줘">이동+설명 (둘 다)</button>
-          <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그 (Viewer 실패)</button>
-          <button id="exServerError">❌ 백엔드 500 에러</button>
+          <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
+          <button id="exServerError">❌ 백엔드 500</button>
         </div>
       </div>
     </div>
@@ -68,12 +72,17 @@
     <div class="card" style="flex:1; display:flex; flex-direction:column;">
       <h2>6 · Mock Viewer</h2>
       <div class="viewer" id="viewer" style="flex:1;">
+        <div class="vtopbar">
+          <span>👁 시점: <b id="viewDir">전면</b></span>
+          <span id="viewFilter">전체 표시</span>
+        </div>
         <div class="cube">📦</div>
         <div>
           <div class="label">현재 선택된 TAG</div>
           <div class="tag" id="viewerTag">—</div>
         </div>
         <div class="status idle" id="viewerStatus">대기 중 (idle)</div>
+        <div class="scene" id="scene"></div>
       </div>
     </div>
   </div>

@@ -82,12 +82,15 @@
     res.actions.forEach((action, i) => {
       lines.push(`--- action[${i}] ---`);
 
+      // 액션 타입 → SDK 호출 표현 (연결고리가 매핑)
+      const desc = ActionExecutor.describe(action);
+
       // [3] Frontend → i3DWEB Viewer (SDK 호출 요청) — 솔루션팀 영역
       pushFlow({
         owner: "sol", dir: "req", transport: "sdk",
-        endpoint: `i3dwebViewer.jumpToTag("${action.targetValue}")`,
+        endpoint: desc.endpoint,
         meta: "Viewer SDK call",
-        payload: { method: "jumpToTag", args: { targetType: action.targetType, targetValue: action.targetValue, params: action.params } }
+        payload: desc.payload
       });
 
       const result = ActionExecutor.executeAction(action);
@@ -95,16 +98,12 @@
       // [4] i3DWEB Viewer → Frontend (콜백 응답) — 솔루션팀 영역
       pushFlow({
         owner: "sol", dir: "res", transport: "sdk", error: !result.ok,
-        endpoint: result.ok ? "jumpToTag → callback" : "jumpToTag → error callback",
+        endpoint: `${desc.payload.method} → ${result.ok ? "callback" : "error callback"}`,
         meta: result.ok ? "~12ms" : "~9ms",
-        payload: result.ok
-          ? { ok: true, action: action.type, movedTo: action.targetValue, status: "moved" }
-          : { ok: false, action: action.type, error: result.error, message: result.message }
+        payload: Object.assign({ ok: result.ok, action: action.type }, omit(result, ["ok", "message"]))
       });
 
       lines.push(`type: ${action.type}`);
-      lines.push(`targetType: ${action.targetType}`);
-      lines.push(`targetValue: ${action.targetValue}`);
       lines.push(result.ok
         ? `<span class="ok">결과: ${result.message}</span>`
         : `<span class="err">실패: ${result.error} — ${result.message}</span>`);
@@ -160,6 +159,12 @@
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  }
+
+  function omit(obj, keys) {
+    const out = {};
+    Object.keys(obj || {}).forEach((k) => { if (keys.indexOf(k) === -1) out[k] = obj[k]; });
+    return out;
   }
 
   /* ── API 흐름(요청/응답) 타임라인 ─────────────────────── */

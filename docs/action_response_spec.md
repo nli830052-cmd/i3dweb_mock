@@ -43,9 +43,34 @@
 
 ## 2. action type
 
-1차 테스트에서는 `JUMP_TO`만 지원한다.
+1차 확장(설비 찾기/조작)까지 지원하는 액션:
 
-- `JUMP_TO` — 특정 설비/태그 위치로 Viewer 화면을 이동한다.
+| type | 설명 | 주요 필드 | SDK 매핑 |
+|---|---|---|---|
+| `JUMP_TO` | 태그 위치로 이동 | `targetType:"TAG"`, `targetValue` | `jumpToTag(tag)` |
+| `SEARCH_EQUIPMENT` | 이름/타입으로 설비 검색 | `query` | `searchEquipment(query)` |
+| `ROTATE_VIEW` | 시점 회전 | `params:{direction, angle}` | `rotateView(dir, angle)` |
+| `HIDE_OBJECT` | 객체 숨김 | `targetType:"TYPE"\|"TAG"`, `targetValue` | `hide({by,value})` |
+| `SHOW_OBJECT` | 객체 다시 표시 | `targetType:"TYPE"\|"TAG"\|"ALL"`, `targetValue` | `show({by,value})` |
+| `ISOLATE_SYSTEM` | 특정 계통만 표시 | `targetValue`(계통, null이면 현재 선택) | `isolateSystem(system)` |
+| `FILTER_BY_TYPE` | 특정 타입만 표시 | `targetValue`(PUMP/VALVE/...) | `filterByType(type)` |
+
+> 액션별 SDK 매핑은 `src/core/actionExecutor.js` 레지스트리에서 관리한다(신규 추가 = register 한 줄).
+> `targetType`(TAG/TYPE/ALL), 타입코드(PUMP/VALVE/MOTOR/BEARING/HEATEX/TANK)는 mock 기준.
+
+### 액션 JSON 예시 (1차 확장)
+```json
+// 검색
+{ "type": "SEARCH_EQUIPMENT", "query": "터빈 윤활유 펌프", "params": {} }
+// 회전
+{ "type": "ROTATE_VIEW", "params": { "direction": "back", "angle": 180 } }
+// 타입 숨김
+{ "type": "HIDE_OBJECT", "targetType": "TYPE", "targetValue": "VALVE", "params": {} }
+// 계통 격리
+{ "type": "ISOLATE_SYSTEM", "targetValue": "터빈 윤활유 계통", "params": {} }
+// 타입 필터
+{ "type": "FILTER_BY_TYPE", "targetValue": "PUMP", "params": {} }
+```
 
 ## 3. targetType
 
