@@ -119,6 +119,15 @@ Viewer 액션이 아닌 **답변 전용**. 응답에 출처/조회 trace 필드�
 >
 > 5차(작업 조건)는 출처가 **Walkinside 공간 데이터(솔루션팀)** 이므로 `retrieval.owner = "sol"` 로 표시된다
 > (CMMS=AI팀 `owner` 생략 시 기본 "ai"). 흐름 패널에서 데이터 조회 단계의 소유 팀이 구분된다.
+>
+> 6차(작업 단계)는 **작업오더(WO) 워크플로**(AI팀) 기반 grounded ANSWER. `retrieval.source = "작업오더(WO) 워크플로"`.
+
+### 데이터 소스 정리 (grounded ANSWER 출처)
+| 카테고리 | 데이터 소스 | owner |
+|---|---|---|
+| 3·4차 정비 이력/주기 | CMMS·정비이력/주기 DB | AI팀 |
+| 5차 작업 조건(공간) | Walkinside 공간 데이터 | 솔루션팀 |
+| 6차 작업 단계 | 작업오더(WO) 워크플로 | AI팀 |
 
 ## 3. targetType
 

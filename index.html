@@ -49,6 +49,11 @@
           <button data-ex="이 밸브는 2m 이상 고소작업에 해당돼?">고소작업 (공간)</button>
           <button data-ex="이 밸브 주변에 추락 위험이나 개구부가 있어?">추락위험 (공간)</button>
           <button data-ex="이 밸브 정비 구역을 화면에 표시해줘">정비구역 (ACTION)</button>
+          <button data-ex="지금 이 밸브 정비는 어느 단계까지 완료됐어?">작업단계 (WO)</button>
+          <button data-ex="다음 작업 단계 알려줘">다음단계 (WO)</button>
+          <button data-ex="현재 단계에서 확인해야 할 체크리스트 보여줘">체크리스트 (WO)</button>
+          <button data-ex="분해 전 준비사항 중 완료 안 된 항목 있어?">미완료항목 (WO)</button>
+          <button data-ex="조립 전 점검사항 중 누락된 항목 있어?">누락항목 (WO)</button>
           <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
           <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
           <button id="exServerError">❌ 백엔드 500</button>
@@ -110,6 +115,7 @@
 
 <!-- 모듈 로드 순서: AI(백엔드) → Viewer(SDK) → ActionExecutor(연결고리) → UI(오케스트레이션) -->
 <script src="src/ai/maintenanceDb.js"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS/RAG) -->
+<script src="src/ai/workflowDb.js"></script>        <!-- [AI팀]   WorkflowDB (mock 작업오더) -->
 <script src="src/ai/classifier.js"></script>        <!-- [AI팀]   AiBackend -->
 <script src="src/viewer/mockViewer.js"></script>    <!-- [솔루션팀] ViewerSDK -->
 <script src="src/viewer/spatialDb.js"></script>     <!-- [솔루션팀] SpatialDB (mock Walkinside 공간) -->

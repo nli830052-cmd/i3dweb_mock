@@ -125,6 +125,12 @@
         target === "EMERGENCY_EXIT" ? "가장 가까운 비상구까지의 경로를 표시합니다." : "선택 대상까지의 경로를 표시합니다.");
     }
 
+    // ── 6차: 현재 작업 단계 (작업오더 워크플로 기반 grounded ANSWER) ──
+    if (isStageQuery(text)) {
+      const t = tag || (request.viewerContext && request.viewerContext.currentTag) || "GV-101A";
+      return buildStageAnswer(t, text);
+    }
+
     // ── 4차: 교체/정비 주기 (CMMS·추론 기반 grounded ANSWER) ──
     // (cat3보다 앞: "교체해야?"·"주기"·"예정일"·"부품"을 이력 질의와 구분)
     if (isCycleQuery(text)) {
@@ -246,6 +252,44 @@
         { documentName: "정비 지침서", section: rec.name, page: null }
       ],
       retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
+  }
+
+  /* ── 6차: 현재 작업 단계 질의 판별 + 작업오더 기반 답변 ── */
+  function isStageQuery(text) {
+    return has(text, ["단계", "체크리스트", "다음 작업", "준비사항", "점검사항", "누락", "미완료", "완료 안"]);
+  }
+
+  function buildStageAnswer(tag, text) {
+    const rec = (window.WorkflowDB && window.WorkflowDB.query(tag)) || null;
+    if (!rec) {
+      return { responseType: "ANSWER", message: `${tag} 작업 단계를 확인합니다.`,
+        answer: `${tag}에 대한 진행 중 작업오더가 없습니다. (mock)`,
+        actions: [], confidence: 0.6, grounded: false, sources: [],
+        retrieval: { source: "작업오더(WO) 워크플로", query: `tag=${tag}`, hitCount: 0 } };
+    }
+    let answer;
+    if (text.includes("체크리스트")) {
+      answer = `현재 단계 체크리스트는 ${rec.checklist.join(", ")}입니다.`;
+    } else if (text.includes("누락")) {
+      answer = rec.assemblyMissing.length
+        ? `조립 전 점검사항 중 ${rec.assemblyMissing.join(", ")}이(가) 누락되었습니다. 조립 전 해당 항목을 먼저 확인해야 합니다.`
+        : "조립 전 점검사항 중 누락된 항목은 없습니다.";
+    } else if (text.includes("준비") && (text.includes("완료 안") || text.includes("미완료") || text.includes("안 된"))) {
+      answer = rec.prepIncomplete.length
+        ? `분해 전 준비사항 중 ${rec.prepIncomplete.join(", ")}이(가) 미완료 상태입니다. 완료 후 다음 단계로 진행할 수 있습니다.`
+        : "분해 전 준비사항은 모두 완료되었습니다.";
+    } else if (text.includes("다음")) {
+      answer = `다음 작업 단계는 ${rec.nextStepDetail}`;
+    } else {
+      answer = `현재 작업은 ${rec.currentStage} 상태입니다. 다음 단계는 ${rec.nextStage}입니다.`;
+    }
+    return { responseType: "ANSWER", message: `${tag} 작업 단계를 확인합니다.`, answer: answer, actions: [],
+      confidence: 0.85, grounded: true,
+      sources: [
+        { documentName: "작업오더(WO)", section: tag, page: null },
+        { documentName: "정비 절차서", section: rec.name, page: null }
+      ],
+      retrieval: { source: "작업오더(WO) 워크플로", query: `tag=${tag}`, hitCount: rec.checklist.length } };
   }
 
   /* ── 5차: 작업 조건 (Walkinside 공간 데이터 기반 grounded ANSWER) ── */
