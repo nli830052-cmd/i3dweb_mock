@@ -83,5 +83,37 @@
     call: (a) => ViewerSDK.filterByType(a.targetValue)
   });
 
+  // ── 2차: 작업 위치 안내 ──────────────────────────────────
+  register("MOVE_TO_INSPECTION", {
+    method: "moveToInspection",
+    summary: (a) => q(a.targetValue || "선택"),
+    args: (a) => ({ targetValue: a.targetValue }),
+    call: (a) => ViewerSDK.moveToInspection(a.targetValue)
+  });
+  register("SHOW_PATH", {
+    method: "showPath",
+    summary: (a) => q(a.target),
+    args: (a) => ({ target: a.target }),
+    call: (a) => ViewerSDK.showPath(a.target)
+  });
+  register("SHOW_INSPECTION_ROUTE", {
+    method: "showInspectionRoute",
+    summary: () => "",
+    args: () => ({}),
+    call: () => ViewerSDK.showInspectionRoute()
+  });
+  register("FIND_NEAREST", {
+    method: "findNearest",
+    summary: () => q("inspection"),
+    args: () => ({ filter: "inspection" }),
+    call: () => ViewerSDK.findNearest()
+  });
+  register("SHOW_WORKER_POSITION", {
+    method: "showWorkerPosition",
+    summary: (a) => q(a.targetValue || "선택"),
+    args: (a) => ({ targetValue: a.targetValue }),
+    call: (a) => ViewerSDK.showWorkerPosition(a.targetValue)
+  });
+
   window.ActionExecutor = { register, executeAction, describe };
 })();

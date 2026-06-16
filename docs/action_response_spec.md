@@ -54,6 +54,11 @@
 | `SHOW_OBJECT` | 객체 다시 표시 | `targetType:"TYPE"\|"TAG"\|"ALL"`, `targetValue` | `show({by,value})` |
 | `ISOLATE_SYSTEM` | 특정 계통만 표시 | `targetValue`(계통, null이면 현재 선택) | `isolateSystem(system)` |
 | `FILTER_BY_TYPE` | 특정 타입만 표시 | `targetValue`(PUMP/VALVE/...) | `filterByType(type)` |
+| `MOVE_TO_INSPECTION` | 점검 위치로 이동 | `targetType`, `targetValue`(null=선택) | `moveToInspection(tag)` |
+| `SHOW_PATH` | 경로 표시 | `target`(tag/`OPERATION_POS`/`EMERGENCY_EXIT`) | `showPath(target)` |
+| `SHOW_INSPECTION_ROUTE` | 오늘 점검 순서 안내 | (없음) | `showInspectionRoute()` |
+| `FIND_NEAREST` | 최근접 점검 대상 | `params:{filter:"inspection"}` | `findNearest()` |
+| `SHOW_WORKER_POSITION` | 점검자 위치 표시 | `targetValue`(null=선택) | `showWorkerPosition(tag)` |
 
 > 액션별 SDK 매핑은 `src/core/actionExecutor.js` 레지스트리에서 관리한다(신규 추가 = register 한 줄).
 > `targetType`(TAG/TYPE/ALL), 타입코드(PUMP/VALVE/MOTOR/BEARING/HEATEX/TANK)는 mock 기준.
@@ -70,6 +75,20 @@
 { "type": "ISOLATE_SYSTEM", "targetValue": "터빈 윤활유 계통", "params": {} }
 // 타입 필터
 { "type": "FILTER_BY_TYPE", "targetValue": "PUMP", "params": {} }
+```
+
+### 액션 JSON 예시 (2차 — 작업 위치 안내)
+```json
+// 점검 위치 이동
+{ "type": "MOVE_TO_INSPECTION", "targetType": "SELECTED", "targetValue": null, "params": {} }
+// 경로 (비상구)
+{ "type": "SHOW_PATH", "target": "EMERGENCY_EXIT", "params": {} }
+// 점검 순서
+{ "type": "SHOW_INSPECTION_ROUTE", "params": {} }
+// 최근접 점검 대상
+{ "type": "FIND_NEAREST", "params": { "filter": "inspection" } }
+// 점검자 위치
+{ "type": "SHOW_WORKER_POSITION", "targetValue": null, "params": {} }
 ```
 
 ## 3. targetType

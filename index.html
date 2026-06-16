@@ -30,6 +30,13 @@
           <button data-ex="밸브 다시 보여줘">표시 (SHOW)</button>
           <button data-ex="이 구역에 있는 펌프만 보여줘">타입필터 (FILTER)</button>
           <button data-ex="선택한 이 계통만 보여줘">계통격리 (ISOLATE)</button>
+          <button data-ex="이 설비 점검 위치로 이동해줘">점검위치 (MOVE_INSP)</button>
+          <button data-ex="밸브 조작 위치까지 경로 표시해줘">경로 (PATH)</button>
+          <button data-ex="오늘 점검해야 하는 설비 위치 순서대로 안내해줘">점검순서 (ROUTE)</button>
+          <button data-ex="현재 위치에서 가장 가까운 점검 대상 보여줘">최근접 (NEAREST)</button>
+          <button data-ex="이 펌프 점검자가 서야 하는 위치 보여줘">점검자위치 (WORKER)</button>
+          <button data-ex="비상 탈출 경로 보여줘">비상경로 (PATH)</button>
+          <button data-ex="사다리나 작업 발판이 필요한 위치인지 알려줘">고소작업 (ANSWER)</button>
           <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
           <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
           <button id="exServerError">❌ 백엔드 500</button>
@@ -82,6 +89,7 @@
           <div class="tag" id="viewerTag">—</div>
         </div>
         <div class="status idle" id="viewerStatus">대기 중 (idle)</div>
+        <div class="vinfo" id="viewerInfo"></div>
         <div class="scene" id="scene"></div>
       </div>
     </div>

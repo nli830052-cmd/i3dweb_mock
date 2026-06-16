@@ -81,6 +81,44 @@
       return mkAction("SEARCH_EQUIPMENT", action({ type: "SEARCH_EQUIPMENT", query: query }),
         `"${query}" 설비를 검색합니다. 가장 가까운 설비로 이동하고 속성정보를 표시합니다.`);
     }
+    // ── 2차: 작업 위치 안내 ─────────────────────────────
+    // (a) 고소작업 / 사다리·발판 → ANSWER (공간 조건)
+    if (has(text, ["사다리", "작업 발판", "작업발판", "발판", "고소작업"])) {
+      return { responseType: "ANSWER", message: "작업 위치 안전 조건을 확인합니다.",
+        answer: "선택 설비의 작업 위치 높이는 약 2.3m입니다. 2m 이상 고소작업 기준에 해당하므로 작업발판 또는 안전대 등 안전조치가 필요합니다. (mock · 실제는 Walkinside 높이 측정 연계)",
+        actions: [], confidence: 0.84 };
+    }
+    // (b) 오늘 점검 순서 안내 → SHOW_INSPECTION_ROUTE
+    if (text.includes("점검") && has(text, ["순서", "동선", "루트"])) {
+      return mkAction("SHOW_INSPECTION_ROUTE", action({ type: "SHOW_INSPECTION_ROUTE" }),
+        "오늘 점검 대상을 현재 위치 기준 최적 순서로 안내합니다. 첫 번째 위치로 이동합니다.");
+    }
+    // (c) 가장 가까운 점검 대상 → FIND_NEAREST
+    if (has(text, ["가장 가까운", "제일 가까운", "가까운"]) && (text.includes("점검") || text.includes("대상"))) {
+      return mkAction("FIND_NEAREST", action({ type: "FIND_NEAREST", params: { filter: "inspection" } }),
+        "현재 위치에서 가장 가까운 점검 대상으로 이동합니다.");
+    }
+    // (d) 점검자가 서야 하는 위치 → SHOW_WORKER_POSITION
+    if (has(text, ["점검자", "작업자"]) && text.includes("위치")) {
+      return mkAction("SHOW_WORKER_POSITION", action({ type: "SHOW_WORKER_POSITION", targetValue: tag }),
+        "점검자가 서야 하는 위치를 표시합니다.");
+    }
+    // (e) 점검 위치로 이동 → MOVE_TO_INSPECTION
+    if (text.includes("점검") && text.includes("위치") && has(text, ["이동", "안내", "가줘", "가자", "데려"])) {
+      return mkAction("MOVE_TO_INSPECTION", action({ type: "MOVE_TO_INSPECTION", targetType: tag ? "TAG" : "SELECTED", targetValue: tag }),
+        "선택한 설비의 점검 위치로 이동합니다. 작업자는 설비 전면 약 1.5m 거리에서 점검할 수 있습니다.");
+    }
+    // (f) 경로 / 비상 탈출 → SHOW_PATH
+    if (text.includes("경로") || (text.includes("비상") && has(text, ["탈출", "출구", "대피"]))) {
+      let target;
+      if (text.includes("비상") || text.includes("대피")) target = "EMERGENCY_EXIT";
+      else if (text.includes("조작")) target = "OPERATION_POS";
+      else if (tag) target = tag;
+      else target = "OPERATION_POS";
+      return mkAction("SHOW_PATH", action({ type: "SHOW_PATH", target: target }),
+        target === "EMERGENCY_EXIT" ? "가장 가까운 비상구까지의 경로를 표시합니다." : "선택 대상까지의 경로를 표시합니다.");
+    }
+
     // 7) 이동 (태그 기반)
     if (tag && has(text, ["이동", "가줘", "가자", "안내", "위치", "찾아", "보여", "데려"])) {
       return mkAction("JUMP_TO", action({ type: "JUMP_TO", targetType: "TAG", targetValue: tag }),
