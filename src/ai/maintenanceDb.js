@@ -25,6 +25,7 @@
       recurring: "그랜드패킹 부위 누설",
       inspectionResult: "조건부 정상 — 밸브 작동 가능하나 그랜드패킹 부위 재점검 권고 등록",
       openPoints: [{ desc: "그랜드패킹 누설 재확인 필요", due: "2026-06-20" }],
+      priorityParts: ["그랜드패킹", "스템", "디스크/시트", "보닛 가스켓"],
       cycleMonths: 12, lastMaintenance: "2025-03-21", nextDue: "2026-06-20"
     },
     "TG-VLV-205": {
@@ -39,6 +40,7 @@
       recurring: "특이 반복 이슈 없음",
       inspectionResult: "정상",
       openPoints: [],
+      priorityParts: ["스템", "시트", "패킹"],
       cycleMonths: 12, lastMaintenance: "2025-09-30", nextDue: "2026-09-30"
     },
     "GV-102A": {
@@ -50,6 +52,7 @@
       recurring: "특이 반복 이슈 없음",
       inspectionResult: "정상",
       openPoints: [],
+      priorityParts: ["디스크", "시트", "스템"],
       cycleMonths: 12, lastMaintenance: "2025-06-18", nextDue: "2026-06-18"
     }
   };

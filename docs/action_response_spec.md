@@ -113,6 +113,9 @@ Viewer 액션이 아닌 **답변 전용**. 응답에 출처/조회 trace 필드�
 - `retrieval`: AI 백엔드 내부 조회 trace — API 흐름 패널에서 `정비이력 DB` 단계로 표시
 - 대상 설비: 텍스트 태그 → `viewerContext.currentTag` → 기본값 순으로 결정
 
+> 4차(교체/정비 주기)도 동일한 grounded ANSWER 형식을 사용한다(`retrieval.source = "CMMS·정비주기 DB"`).
+> 주기 초과 판정은 `lastMaintenance + cycleMonths` vs 현재 날짜로 동적 계산.
+
 ## 3. targetType
 
 1차 테스트에서는 `TAG`만 지원한다.

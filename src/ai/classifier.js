@@ -119,6 +119,13 @@
         target === "EMERGENCY_EXIT" ? "가장 가까운 비상구까지의 경로를 표시합니다." : "선택 대상까지의 경로를 표시합니다.");
     }
 
+    // ── 4차: 교체/정비 주기 (CMMS·추론 기반 grounded ANSWER) ──
+    // (cat3보다 앞: "교체해야?"·"주기"·"예정일"·"부품"을 이력 질의와 구분)
+    if (isCycleQuery(text)) {
+      const t = tag || (request.viewerContext && request.viewerContext.currentTag) || "GV-101A";
+      return buildCycleAnswer(t, text);
+    }
+
     // ── 3차: 정비 이력/상태 (CMMS·RAG 기반 grounded ANSWER) ──
     // (태그가 있어도 정비 질의면 ANSWER 우선 → JUMP_TO보다 앞)
     if (isMaintenanceQuery(text)) {
@@ -184,6 +191,55 @@
         { documentName: "정비 지침서", section: rec.name, page: null }
       ],
       retrieval: { source: "CMMS·정비이력 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
+  }
+
+  /* ── 4차: 교체/정비 주기 질의 판별 + 추론 답변 ─────────── */
+  function isCycleQuery(text) {
+    if (has(text, ["주기", "예정일", "다음 정비", "부품"])) return true;
+    // "교체해야/교체 검토/교체 필요" = 판단 질의 (판단 동사로 "교체 이력"과 구분)
+    if (text.includes("교체") && has(text, ["해야", "할까", "검토", "필요"])) return true;
+    return false;
+  }
+
+  function addMonths(dateStr, months) {
+    const d = new Date(dateStr); d.setMonth(d.getMonth() + months); return d;
+  }
+  function fmtDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function buildCycleAnswer(tag, text) {
+    const rec = (window.MaintenanceDB && window.MaintenanceDB.query(tag)) || null;
+    if (!rec) {
+      return { responseType: "ANSWER", message: `${tag} 정비 주기를 조회합니다.`,
+        answer: `${tag}의 정비 주기 정보가 CMMS에 등록되어 있지 않습니다. (mock)`,
+        actions: [], confidence: 0.6, grounded: false, sources: [],
+        retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: 0 } };
+    }
+    let answer;
+    if (text.includes("부품")) {
+      answer = `우선 점검 부품은 ${rec.priorityParts.join(", ")}입니다.` +
+        (rec.leaks.length ? " 최근 누설 이력을 고려하면 그랜드패킹 부위를 먼저 확인하는 것이 좋습니다." : "");
+    } else if (text.includes("교체")) {
+      answer = rec.leaks.length
+        ? "최근 누설 이력이 있고 그랜드패킹 부위 점검 이력이 반복되어 교체 검토가 필요합니다. 단, 최종 교체 여부는 분해 후 패킹 상태와 스터핑박스 손상 여부 확인 후 결정해야 합니다."
+        : "현재 이력 기준 즉시 교체가 필요한 근거는 확인되지 않습니다. 정기 점검 시 상태 확인 후 판단하세요.";
+    } else if (text.includes("예정일") || text.includes("다음 정비")) {
+      answer = `다음 정비 예정일은 ${rec.nextDue}입니다.` +
+        (rec.leaks.length ? " 최근 누설 이력 때문에 일반 주기보다 우선 점검 대상으로 분류되었습니다." : "");
+    } else { // 주기 초과 여부
+      const due = addMonths(rec.lastMaintenance, rec.cycleMonths);
+      const overdue = new Date() > due;
+      answer = `마지막 정비일은 ${rec.lastMaintenance}이고 기준 정비 주기는 ${rec.cycleMonths}개월입니다. ` +
+        (overdue ? "현재 기준으로 정비 주기가 초과되어 점검 대상입니다." : `현재 기준 정비 주기 도래 전입니다. (다음 예정 ${fmtDate(due)})`);
+    }
+    return { responseType: "ANSWER", message: `${tag} 정비 주기를 조회합니다.`, answer: answer, actions: [],
+      confidence: 0.85, grounded: true,
+      sources: [
+        { documentName: "CMMS 정비주기", section: tag, page: null },
+        { documentName: "정비 지침서", section: rec.name, page: null }
+      ],
+      retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
   }
 
   function mkAnswer(tag, type, text) {
