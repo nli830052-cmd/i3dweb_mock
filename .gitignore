@@ -2,3 +2,10 @@
 .DS_Store
 Thumbs.db
 .vscode/
+
+# generated RAG artifacts (재생성 가능: scripts/ingest_manuals.py, embed_chunks.py)
+data/
+
+# python
+__pycache__/
+*.pyc
