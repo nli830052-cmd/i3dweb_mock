@@ -12,7 +12,7 @@ endpoints:
 
 run (프로젝트 루트에서):  python backend/rag_server.py   # http://localhost:8000
 """
-import json, os, sys
+import json, os, sys, sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # scripts/search_manuals.py 재사용
@@ -20,6 +20,59 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import search_manuals as sm  # noqa: E402
 
 PORT = 8090   # 8000(i3dweb_chatbot)/8077(ollama) 점유 회피
+DB_PATH = "data/app.db"
+
+def _db_rows(table):
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    rows = con.execute("SELECT * FROM %s" % table).fetchall()
+    con.close()
+    return [dict(r) for r in rows]
+
+def _jl(s):
+    try:
+        return json.loads(s) if s else None
+    except Exception:
+        return None
+
+def db_maintenance_all():
+    out = {}
+    for r in _db_rows("maintenance"):
+        out[r["tag"]] = {
+            "tag": r["tag"], "name": r["name"],
+            "history": _jl(r["history"]), "lastOverhaul": _jl(r["last_overhaul"]),
+            "bonnetGasket": _jl(r["bonnet_gasket"]), "leaks": _jl(r["leaks"]),
+            "recurring": r["recurring"], "inspectionResult": r["inspection_result"],
+            "openPoints": _jl(r["open_points"]), "priorityParts": _jl(r["priority_parts"]),
+            "cycleMonths": r["cycle_months"], "lastMaintenance": r["last_maintenance"], "nextDue": r["next_due"],
+        }
+    return out
+
+def db_spatial_all():
+    out = {}
+    for r in _db_rows("spatial"):
+        out[r["tag"]] = {
+            "clearance": {"front": r["clearance_front"], "right": r["clearance_right"]},
+            "height": r["height"], "fallHazard": _jl(r["fall_hazard"]),
+        }
+    return out
+
+def db_workflow_all():
+    out = {}
+    for r in _db_rows("workflow"):
+        out[r["tag"]] = {
+            "tag": r["tag"], "name": r["name"], "currentStage": r["current_stage"],
+            "nextStage": r["next_stage"], "nextStepDetail": r["next_step_detail"],
+            "checklist": _jl(r["checklist"]), "prepIncomplete": _jl(r["prep_incomplete"]),
+            "assemblyMissing": _jl(r["assembly_missing"]),
+        }
+    return out
+
+_DB_ALL = {
+    "/api/db/maintenance/all": db_maintenance_all,
+    "/api/db/spatial/all": db_spatial_all,
+    "/api/db/workflow/all": db_workflow_all,
+}
 _VECS = None
 _META = None
 
@@ -57,9 +110,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204); self._cors(); self.end_headers()
 
     def do_GET(self):
-        if self.path.split("?")[0] == "/health":
+        path = self.path.split("?")[0]
+        if path == "/health":
             vecs, meta = _ensure_loaded()
             return self._json(200, {"ok": True, "chunks": len(meta), "model": sm.MODEL_NAME})
+        if path in _DB_ALL:
+            try:
+                return self._json(200, _DB_ALL[path]())
+            except Exception as e:
+                return self._json(500, {"error": "DB_ERROR", "message": str(e)})
         return self._json(404, {"error": "NOT_FOUND"})
 
     def do_POST(self):

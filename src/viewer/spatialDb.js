@@ -20,5 +20,14 @@
 
   function query(tag) { return SPATIAL[tag] || null; }
 
-  window.SpatialDB = { query, SPATIAL };
+  function hydrate() {
+    const base = (window.RagClient && window.RagClient.BASE) || "http://localhost:8090";
+    fetch(base + "/api/db/spatial/all")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) { Object.keys(SPATIAL).forEach((k) => delete SPATIAL[k]); Object.assign(SPATIAL, d); console.log("[SpatialDB] SQLite 동기화", Object.keys(SPATIAL).length, "건"); } })
+      .catch(() => {});
+  }
+
+  window.SpatialDB = { query, SPATIAL, hydrate };
+  hydrate();
 })();

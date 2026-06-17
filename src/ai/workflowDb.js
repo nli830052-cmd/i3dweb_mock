@@ -32,5 +32,14 @@
 
   function query(tag) { return RECORDS[tag] || null; }
 
-  window.WorkflowDB = { query, RECORDS };
+  function hydrate() {
+    const base = (window.RagClient && window.RagClient.BASE) || "http://localhost:8090";
+    fetch(base + "/api/db/workflow/all")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) { Object.keys(RECORDS).forEach((k) => delete RECORDS[k]); Object.assign(RECORDS, d); console.log("[WorkflowDB] SQLite 동기화", Object.keys(RECORDS).length, "건"); } })
+      .catch(() => {});
+  }
+
+  window.WorkflowDB = { query, RECORDS, hydrate };
+  hydrate();
 })();

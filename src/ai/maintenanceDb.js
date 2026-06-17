@@ -59,5 +59,15 @@
 
   function query(tag) { return RECORDS[tag] || null; }
 
-  window.MaintenanceDB = { query, RECORDS };
+  // 시작 시 SQLite(백엔드)에서 동기화. 실패하면 위 하드코딩값을 폴백으로 사용.
+  function hydrate() {
+    const base = (window.RagClient && window.RagClient.BASE) || "http://localhost:8090";
+    fetch(base + "/api/db/maintenance/all")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) { Object.keys(RECORDS).forEach((k) => delete RECORDS[k]); Object.assign(RECORDS, d); console.log("[MaintenanceDB] SQLite 동기화", Object.keys(RECORDS).length, "건"); } })
+      .catch(() => {});
+  }
+
+  window.MaintenanceDB = { query, RECORDS, hydrate };
+  hydrate();
 })();
