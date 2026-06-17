@@ -345,15 +345,15 @@
     if (opts.simulateError) {
       throw { status: 500, body: { error: "INTERNAL_ERROR", message: "AI 응답 생성 중 오류가 발생했습니다.", requestId: (request.sessionId || "sess") + "-" + Date.now() } };
     }
-    // 매뉴얼/절차 질의 → 실제 RAG 백엔드 검색 (grounded ANSWER)
+    // 매뉴얼/절차 질의 → RAG 검색 + LLM(Qwen3) 종합 답변
     if (isManualQuery(request.message || "")) {
       try {
         const vt = valveTypeOf(request);
-        const r = await window.RagClient.search(request.message, vt);
+        const r = await window.RagClient.answer(request.message, vt);
         if (r && r.hitCount > 0) return buildRagAnswer(request.message, vt, r);
       } catch (e) {
         return { responseType: "ANSWER", message: "매뉴얼 RAG 서버에 연결하지 못했습니다.",
-          answer: "RAG 백엔드를 실행했는지 확인하세요: python backend/rag_server.py (http://localhost:8090)",
+          answer: "RAG 백엔드를 실행했는지 확인하세요: python backend/rag_server.py (http://localhost:8090) · Ollama + qwen3:8b 필요",
           actions: [], confidence: 0.3, grounded: false };
       }
       // 검색 결과 없으면 아래 로컬 분류로 폴백
@@ -376,19 +376,18 @@
     return (tag && map[tag]) || null;   // 없으면 전체 검색
   }
   function buildRagAnswer(query, vt, r) {
-    const top = r.hits[0];
-    const body = top.text.replace(/^\[[^\]]*\]\n?/, "");   // 빵부스러기 줄 제거
     const vlabel = vt === "gate" ? "Gate 밸브 " : vt === "globe" ? "Globe 밸브 " : "";
     return {
       responseType: "ANSWER",
-      message: vlabel + "매뉴얼에서 관련 내용을 찾았습니다.",
-      answer: body,
+      message: vlabel + "매뉴얼 기반으로 답변합니다.",
+      answer: r.answer,                       // Qwen3가 검색 청크로 종합한 답변
       actions: [],
-      confidence: Math.min(0.95, Number((top.score + 0.3).toFixed(2))),
-      grounded: true,
-      sources: r.hits.map((h) => ({ documentName: h.doc, section: h.sectionPath, page: h.page })),
-      retrieval: { source: "유지보수 매뉴얼 RAG (bge-m3)", query: query, hitCount: r.hitCount, owner: "ai",
-        data: r.hits.map((h) => ({ score: h.score, id: h.id, valveType: h.valveType, heading: h.heading })) }
+      confidence: 0.9,
+      grounded: !!r.grounded,
+      sources: r.sources || ((r.hits || []).map((h) => ({ documentName: h.doc, section: h.sectionPath, page: h.page }))),
+      retrieval: { source: "유지보수 매뉴얼 RAG (bge-m3 + " + (r.model || "qwen3") + ")",
+        query: query, hitCount: r.hitCount, owner: "ai",
+        data: (r.hits || []).map((h) => ({ score: h.score, id: h.id, valveType: h.valveType, heading: h.heading })) }
     };
   }
 

@@ -12,7 +12,7 @@ endpoints:
 
 run (프로젝트 루트에서):  python backend/rag_server.py   # http://localhost:8000
 """
-import json, os, sys, sqlite3
+import json, os, sys, sqlite3, re, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # scripts/search_manuals.py 재사용
@@ -21,6 +21,37 @@ import search_manuals as sm  # noqa: E402
 
 PORT = 8090   # 8000(i3dweb_chatbot)/8077(ollama) 점유 회피
 DB_PATH = "data/app.db"
+OLLAMA_URL = "http://localhost:11434"   # 로컬 Ollama
+LLM_MODEL = "qwen3:8b"                   # 답변 생성 LLM (Apache 2.0)
+
+def _strip_crumb(text):
+    return re.sub(r"^\[[^\]]*\]\n?", "", text)
+
+def ollama_generate(prompt, num_predict=600):
+    """로컬 Ollama로 답변 생성. <think> 블록은 제거."""
+    body = json.dumps({
+        "model": LLM_MODEL, "prompt": prompt, "stream": False, "think": False,
+        "options": {"temperature": 0.2, "num_predict": num_predict}
+    }).encode("utf-8")
+    req = urllib.request.Request(OLLAMA_URL + "/api/generate", data=body,
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        data = json.loads(r.read().decode("utf-8"))
+    text = data.get("response", "")
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+
+def build_answer_prompt(query, hits):
+    ctx = "\n\n".join(
+        "- (%s · p.%s)\n%s" % (m["section_path"], m["page"], _strip_crumb(m["text"]))
+        for _s, m in hits
+    )
+    return (
+        "당신은 i3DWEB 설비 유지보수 어시스턴트입니다.\n"
+        "아래 [매뉴얼 발췌]의 내용만 근거로 사용자 질문에 한국어로 간결하고 정확하게 답하세요.\n"
+        "발췌에 없는 내용은 지어내지 말고 '지침서에서 확인되지 않습니다'라고 답하세요.\n"
+        "추측하지 말고, 근거가 된 절차서 섹션을 한 줄로 함께 표기하세요.\n/no_think\n\n"
+        "[매뉴얼 발췌]\n" + ctx + "\n\n[질문]\n" + query + "\n\n[답변]\n"
+    )
 
 def _db_rows(table):
     con = sqlite3.connect(DB_PATH)
@@ -122,7 +153,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"error": "NOT_FOUND"})
 
     def do_POST(self):
-        if self.path.split("?")[0] != "/api/rag/search":
+        path = self.path.split("?")[0]
+        if path not in ("/api/rag/search", "/api/rag/answer"):
             return self._json(404, {"error": "NOT_FOUND"})
         try:
             n = int(self.headers.get("Content-Length", 0))
@@ -138,11 +170,29 @@ class Handler(BaseHTTPRequestHandler):
 
         vecs, meta = _ensure_loaded()
         hits = sm.search(query, vecs, meta, valve_type=valve, top_k=top_k, min_score=min_score)
+
+        if path == "/api/rag/search":
+            return self._json(200, {
+                "query": query, "valveType": valve,
+                "hitCount": len(hits), "grounded": len(hits) > 0, "minScore": min_score,
+                "hits": [_to_camel(s, m) for s, m in hits],
+            })
+
+        # /api/rag/answer : 검색 → LLM 종합
+        if not hits:
+            return self._json(200, {
+                "query": query, "valveType": valve, "hitCount": 0, "grounded": False,
+                "model": LLM_MODEL, "answer": "지침서에서 확인되지 않습니다.", "sources": [], "hits": [],
+            })
+        try:
+            answer = ollama_generate(build_answer_prompt(query, hits))
+        except Exception as e:
+            return self._json(502, {"error": "LLM_UNAVAILABLE", "message": str(e),
+                                    "hint": "ollama 실행 및 %s 모델 확인" % LLM_MODEL})
         return self._json(200, {
-            "query": query, "valveType": valve,
-            "hitCount": len(hits),
-            "grounded": len(hits) > 0,
-            "minScore": min_score,
+            "query": query, "valveType": valve, "hitCount": len(hits), "grounded": True,
+            "model": LLM_MODEL, "answer": answer,
+            "sources": [{"documentName": m["doc"], "section": m["section_path"], "page": m["page"]} for _s, m in hits],
             "hits": [_to_camel(s, m) for s, m in hits],
         })
 

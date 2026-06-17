@@ -13,8 +13,8 @@
   "use strict";
   const BASE = "http://localhost:8090";
 
-  async function search(query, valveType, topK) {
-    const res = await fetch(BASE + "/api/rag/search", {
+  async function _post(path, query, valveType, topK) {
+    const res = await fetch(BASE + path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: query, valveType: valveType || undefined, topK: topK || 5 })
@@ -23,5 +23,10 @@
     return await res.json();
   }
 
-  window.RagClient = { search, BASE };
+  // 검색만 (청크 반환)
+  function search(query, valveType, topK) { return _post("/api/rag/search", query, valveType, topK); }
+  // 검색 + LLM 종합 답변
+  function answer(query, valveType, topK) { return _post("/api/rag/answer", query, valveType, topK); }
+
+  window.RagClient = { search, answer, BASE };
 })();
