@@ -202,7 +202,7 @@
         { documentName: "CMMS 정비이력", section: tag, page: null },
         { documentName: "정비 지침서", section: rec.name, page: null }
       ],
-      retrieval: { source: "CMMS·정비이력 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
+      retrieval: { source: "CMMS·정비이력 DB", query: `tag=${tag}`, hitCount: rec.history.length, data: rec } };
   }
 
   /* ── 4차: 교체/정비 주기 질의 판별 + 추론 답변 ─────────── */
@@ -251,7 +251,8 @@
         { documentName: "CMMS 정비주기", section: tag, page: null },
         { documentName: "정비 지침서", section: rec.name, page: null }
       ],
-      retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: rec.history.length } };
+      retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: rec.history.length,
+        data: { cycleMonths: rec.cycleMonths, lastMaintenance: rec.lastMaintenance, nextDue: rec.nextDue, priorityParts: rec.priorityParts, leaks: rec.leaks } } };
   }
 
   /* ── 6차: 현재 작업 단계 질의 판별 + 작업오더 기반 답변 ── */
@@ -289,7 +290,7 @@
         { documentName: "작업오더(WO)", section: tag, page: null },
         { documentName: "정비 절차서", section: rec.name, page: null }
       ],
-      retrieval: { source: "작업오더(WO) 워크플로", query: `tag=${tag}`, hitCount: rec.checklist.length } };
+      retrieval: { source: "작업오더(WO) 워크플로", query: `tag=${tag}`, hitCount: rec.checklist.length, data: rec } };
   }
 
   /* ── 5차: 작업 조건 (Walkinside 공간 데이터 기반 grounded ANSWER) ── */
@@ -317,7 +318,8 @@
     return { responseType: "ANSWER", message: `${tag} 작업 조건을 확인합니다.`, answer: answer, actions: [],
       confidence: 0.85, grounded: true,
       sources: [{ documentName: "Walkinside 공간측정", section: tag, page: null }],
-      retrieval: { source: "Walkinside 공간 데이터", query: `tag=${tag}`, hitCount: 1, owner: "sol" } };
+      retrieval: { source: "Walkinside 공간 데이터", query: `tag=${tag}`, hitCount: 1, owner: "sol",
+        data: { clearance: rec.clearance, height: rec.height, fallHazard: rec.fallHazard } } };
   }
 
   function mkAnswer(tag, type, text) {

@@ -67,7 +67,7 @@
         payload: { source: res.retrieval.source, query: res.retrieval.query } });
       pushFlow({ owner: downer, dir: "res", transport: "data",
         endpoint: `${res.retrieval.hitCount} record(s) · grounded=${!!res.grounded}`, meta: "~30ms",
-        payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, sources: res.sources || [] } });
+        payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, data: res.retrieval.data || null, sources: res.sources || [] } });
     }
 
     // [2] AI 백엔드 → Frontend (HTTP 응답) — AI팀 영역
