@@ -70,6 +70,16 @@
         payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, data: res.retrieval.data || null, sources: res.sources || [] } });
     }
 
+    // [2b] (RAG 답변 생성 시) 로컬 LLM 종합 — AI팀 영역
+    if (res.generation) {
+      pushFlow({ owner: "ai", dir: "req", transport: "llm",
+        endpoint: `${res.generation.model}.generate(context, query)`, meta: res.generation.engine,
+        payload: { model: res.generation.model, context_chunks: res.generation.chunks, instruction: "검색된 매뉴얼 청크만 근거로 한국어 답변 종합 (환각 방지)" } });
+      pushFlow({ owner: "ai", dir: "res", transport: "llm",
+        endpoint: "generated answer", meta: "로컬 추론",
+        payload: { model: res.generation.model, answer: res.answer } });
+    }
+
     // [2] AI 백엔드 → Frontend (HTTP 응답) — AI팀 영역
     pushFlow({ owner: "ai", dir: "res", transport: "http", endpoint: "200 OK  ·  /api/ai/chat", meta: "~" + (40 + Math.floor(Math.random() * 60)) + "ms", payload: res });
 
@@ -200,7 +210,7 @@
     wrap.className = "flow" + (error ? " error" : "");
     const dirClass = (dir === "res" && error) ? "errres" : dir;
     const dirLabel = dir === "req" ? "요청 ▶" : "◀ 응답";
-    const transportLabel = { http: "HTTP", sdk: "Viewer SDK", data: "DATA" }[transport] || transport;
+    const transportLabel = { http: "HTTP", sdk: "Viewer SDK", data: "DATA", llm: "LLM" }[transport] || transport;
     const ownerLabel = owner === "ai" ? "AI팀" : "솔루션팀";
     wrap.innerHTML =
       `<div class="flow-head">` +

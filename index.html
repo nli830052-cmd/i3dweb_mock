@@ -13,92 +13,11 @@
 </header>
 
 <div class="layout">
-  <!-- LEFT -->
-  <div class="col">
-    <div class="card">
-      <h2>1 · 사용자 입력</h2>
-      <div class="body">
-        <div class="input-row">
-          <input id="userInput" type="text" placeholder="예: TG-BRG-002 위치로 이동해줘" autocomplete="off" />
-          <button class="send" id="sendBtn">Send</button>
-        </div>
-        <div class="examples">
-          <button data-ex="TG-BRG-002 위치로 이동해줘">이동 (JUMP_TO)</button>
-          <button data-ex="터빈 윤활유 펌프 찾아줘">검색 (SEARCH)</button>
-          <button data-ex="이 장비 뒷면 보여줘">회전 (ROTATE)</button>
-          <button data-ex="밸브가 안 보이게 꺼줘">숨김 (HIDE)</button>
-          <button data-ex="밸브 다시 보여줘">표시 (SHOW)</button>
-          <button data-ex="이 구역에 있는 펌프만 보여줘">타입필터 (FILTER)</button>
-          <button data-ex="선택한 이 계통만 보여줘">계통격리 (ISOLATE)</button>
-          <button data-ex="이 설비 점검 위치로 이동해줘">점검위치 (MOVE_INSP)</button>
-          <button data-ex="밸브 조작 위치까지 경로 표시해줘">경로 (PATH)</button>
-          <button data-ex="오늘 점검해야 하는 설비 위치 순서대로 안내해줘">점검순서 (ROUTE)</button>
-          <button data-ex="현재 위치에서 가장 가까운 점검 대상 보여줘">최근접 (NEAREST)</button>
-          <button data-ex="이 펌프 점검자가 서야 하는 위치 보여줘">점검자위치 (WORKER)</button>
-          <button data-ex="비상 탈출 경로 보여줘">비상경로 (PATH)</button>
-          <button data-ex="사다리나 작업 발판이 필요한 위치인지 알려줘">고소작업 (ANSWER)</button>
-          <button data-ex="이 밸브의 최근 정비 이력 보여줘">정비이력 (RAG)</button>
-          <button data-ex="이 밸브는 마지막으로 언제 분해 정비했어?">분해정비일 (RAG)</button>
-          <button data-ex="이 밸브에서 과거에 누설 이력이 있었어?">누설이력 (RAG)</button>
-          <button data-ex="이 밸브에 등록된 미조치 사항이나 Open Point 있어?">Open Point (RAG)</button>
-          <button data-ex="이 밸브의 정비 주기 지났어?">주기초과 (RAG)</button>
-          <button data-ex="이 밸브는 다음 정비 예정일이 언제야?">다음예정일 (RAG)</button>
-          <button data-ex="정비 주기 기준으로 우선 점검해야 할 부품 알려줘">우선부품 (RAG)</button>
-          <button data-ex="최근 누설 이력을 고려하면 그랜드패킹을 교체해야 해?">교체검토 (CMMS)</button>
-          <button data-ex="글로브 밸브 그랜드패킹 교체 기준 알려줘">매뉴얼 교체기준 (RAG)</button>
-          <button data-ex="게이트 밸브 분해 절차 알려줘">매뉴얼 절차 (RAG)</button>
-          <button data-ex="밸브 누설 시 조치 방법 알려줘">매뉴얼 조치 (RAG)</button>
-          <button data-ex="이 Globe Valve 주변 작업 공간 충분해?">작업공간 (공간)</button>
-          <button data-ex="이 밸브는 2m 이상 고소작업에 해당돼?">고소작업 (공간)</button>
-          <button data-ex="이 밸브 주변에 추락 위험이나 개구부가 있어?">추락위험 (공간)</button>
-          <button data-ex="이 밸브 정비 구역을 화면에 표시해줘">정비구역 (ACTION)</button>
-          <button data-ex="지금 이 밸브 정비는 어느 단계까지 완료됐어?">작업단계 (WO)</button>
-          <button data-ex="다음 작업 단계 알려줘">다음단계 (WO)</button>
-          <button data-ex="현재 단계에서 확인해야 할 체크리스트 보여줘">체크리스트 (WO)</button>
-          <button data-ex="분해 전 준비사항 중 완료 안 된 항목 있어?">미완료항목 (WO)</button>
-          <button data-ex="조립 전 점검사항 중 누락된 항목 있어?">누락항목 (WO)</button>
-          <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
-          <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
-          <button id="exServerError">❌ 백엔드 500</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>2 · API 흐름 (요청 / 응답)</h2>
-      <div class="body">
-        <div class="lane">
-          <span class="owner ai">AI팀</span> Frontend ⇄ AI 백엔드 (HTTP) ·
-          <span class="owner sol">솔루션팀</span> Frontend ⇄ i3DWEB Viewer (SDK call)
-          <br>각 단계를 클릭하면 payload를 펼쳐볼 수 있어요. (현재는 mock — 실제 호출 시 동일 계약 유지)
-        </div>
-        <div id="apiFlow"><div class="empty">입력을 보내면 API 시퀀스가 표시됩니다.</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>3 · 챗봇 응답</h2>
-      <div class="body">
-        <div id="chat"><div class="empty">아직 대화가 없습니다.</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>4 · AI 응답 JSON</h2>
-      <div class="body"><pre id="jsonOut" class="empty">// 입력을 기다리는 중...</pre></div>
-    </div>
-
-    <div class="card">
-      <h2>5 · Action 실행 로그</h2>
-      <div class="body"><pre id="logOut" class="empty">// 액션 실행 시 여기에 표시됩니다.</pre></div>
-    </div>
-  </div>
-
-  <!-- RIGHT -->
-  <div class="col">
-    <div class="card" style="flex:1; display:flex; flex-direction:column;">
-      <h2>6 · Mock Viewer</h2>
-      <div class="viewer" id="viewer" style="flex:1;">
+  <!-- LEFT : i3DWEB 화면 (Mock Viewer) -->
+  <div class="col col-viewer">
+    <div class="card card-fill">
+      <h2>i3DWEB 화면 (Mock Viewer)</h2>
+      <div class="viewer" id="viewer">
         <div class="vtopbar">
           <span>👁 시점: <b id="viewDir">전면</b></span>
           <span id="viewFilter">전체 표시</span>
@@ -112,6 +31,84 @@
         <div class="vinfo" id="viewerInfo"></div>
         <div class="scene" id="scene"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- RIGHT : 채팅방 + 디버그 패널 -->
+  <div class="col col-chat">
+    <div class="card card-chat">
+      <h2>채팅방</h2>
+      <div class="body chat-body">
+        <div id="chat"><div class="empty">아직 대화가 없습니다.</div></div>
+        <details class="examples-wrap">
+          <summary>예시 질문 펼치기</summary>
+          <div class="examples">
+            <button data-ex="TG-BRG-002 위치로 이동해줘">이동 (JUMP_TO)</button>
+            <button data-ex="터빈 윤활유 펌프 찾아줘">검색 (SEARCH)</button>
+            <button data-ex="이 장비 뒷면 보여줘">회전 (ROTATE)</button>
+            <button data-ex="밸브가 안 보이게 꺼줘">숨김 (HIDE)</button>
+            <button data-ex="밸브 다시 보여줘">표시 (SHOW)</button>
+            <button data-ex="이 구역에 있는 펌프만 보여줘">타입필터 (FILTER)</button>
+            <button data-ex="선택한 이 계통만 보여줘">계통격리 (ISOLATE)</button>
+            <button data-ex="이 설비 점검 위치로 이동해줘">점검위치 (MOVE_INSP)</button>
+            <button data-ex="밸브 조작 위치까지 경로 표시해줘">경로 (PATH)</button>
+            <button data-ex="오늘 점검해야 하는 설비 위치 순서대로 안내해줘">점검순서 (ROUTE)</button>
+            <button data-ex="현재 위치에서 가장 가까운 점검 대상 보여줘">최근접 (NEAREST)</button>
+            <button data-ex="이 펌프 점검자가 서야 하는 위치 보여줘">점검자위치 (WORKER)</button>
+            <button data-ex="비상 탈출 경로 보여줘">비상경로 (PATH)</button>
+            <button data-ex="사다리나 작업 발판이 필요한 위치인지 알려줘">고소작업 (ANSWER)</button>
+            <button data-ex="이 밸브의 최근 정비 이력 보여줘">정비이력 (RAG)</button>
+            <button data-ex="이 밸브는 마지막으로 언제 분해 정비했어?">분해정비일 (RAG)</button>
+            <button data-ex="이 밸브에서 과거에 누설 이력이 있었어?">누설이력 (RAG)</button>
+            <button data-ex="이 밸브에 등록된 미조치 사항이나 Open Point 있어?">Open Point (RAG)</button>
+            <button data-ex="이 밸브의 정비 주기 지났어?">주기초과 (RAG)</button>
+            <button data-ex="이 밸브는 다음 정비 예정일이 언제야?">다음예정일 (RAG)</button>
+            <button data-ex="정비 주기 기준으로 우선 점검해야 할 부품 알려줘">우선부품 (RAG)</button>
+            <button data-ex="최근 누설 이력을 고려하면 그랜드패킹을 교체해야 해?">교체검토 (CMMS)</button>
+            <button data-ex="글로브 밸브 그랜드패킹 교체 기준 알려줘">매뉴얼 교체기준 (RAG)</button>
+            <button data-ex="게이트 밸브 분해 절차 알려줘">매뉴얼 절차 (RAG)</button>
+            <button data-ex="밸브 누설 시 조치 방법 알려줘">매뉴얼 조치 (RAG)</button>
+            <button data-ex="이 Globe Valve 주변 작업 공간 충분해?">작업공간 (공간)</button>
+            <button data-ex="이 밸브는 2m 이상 고소작업에 해당돼?">고소작업 (공간)</button>
+            <button data-ex="이 밸브 주변에 추락 위험이나 개구부가 있어?">추락위험 (공간)</button>
+            <button data-ex="이 밸브 정비 구역을 화면에 표시해줘">정비구역 (ACTION)</button>
+            <button data-ex="지금 이 밸브 정비는 어느 단계까지 완료됐어?">작업단계 (WO)</button>
+            <button data-ex="다음 작업 단계 알려줘">다음단계 (WO)</button>
+            <button data-ex="현재 단계에서 확인해야 할 체크리스트 보여줘">체크리스트 (WO)</button>
+            <button data-ex="분해 전 준비사항 중 완료 안 된 항목 있어?">미완료항목 (WO)</button>
+            <button data-ex="조립 전 점검사항 중 누락된 항목 있어?">누락항목 (WO)</button>
+            <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
+            <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
+            <button id="exServerError">❌ 백엔드 500</button>
+          </div>
+        </details>
+        <div class="input-row">
+          <input id="userInput" type="text" placeholder="메시지를 입력하세요 (예: TG-BRG-002 위치로 이동해줘)" autocomplete="off" />
+          <button class="send" id="sendBtn">전송</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>API 흐름 (요청 / 응답)</h2>
+      <div class="body">
+        <div class="lane">
+          <span class="owner ai">AI팀</span> Frontend ⇄ AI 백엔드 (HTTP) ·
+          <span class="owner sol">솔루션팀</span> Frontend ⇄ i3DWEB Viewer (SDK call)
+          <br>각 단계를 클릭하면 payload를 펼쳐볼 수 있어요.
+        </div>
+        <div id="apiFlow"><div class="empty">입력을 보내면 API 시퀀스가 표시됩니다.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>AI 응답 JSON</h2>
+      <div class="body"><pre id="jsonOut" class="empty">// 입력을 기다리는 중...</pre></div>
+    </div>
+
+    <div class="card">
+      <h2>Action 실행 로그</h2>
+      <div class="body"><pre id="logOut" class="empty">// 액션 실행 시 여기에 표시됩니다.</pre></div>
     </div>
   </div>
 </div>

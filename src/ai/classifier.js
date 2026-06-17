@@ -385,9 +385,10 @@
       confidence: 0.9,
       grounded: !!r.grounded,
       sources: r.sources || ((r.hits || []).map((h) => ({ documentName: h.doc, section: h.sectionPath, page: h.page }))),
-      retrieval: { source: "유지보수 매뉴얼 RAG (bge-m3 + " + (r.model || "qwen3") + ")",
+      retrieval: { source: "유지보수 매뉴얼 벡터검색 (bge-m3)",
         query: query, hitCount: r.hitCount, owner: "ai",
-        data: (r.hits || []).map((h) => ({ score: h.score, id: h.id, valveType: h.valveType, heading: h.heading })) }
+        data: (r.hits || []).map((h) => ({ score: h.score, id: h.id, valveType: h.valveType, heading: h.heading })) },
+      generation: { model: r.model || "qwen3:8b", engine: "Ollama (로컬)", chunks: r.hitCount }
     };
   }
 
