@@ -44,7 +44,10 @@
           <button data-ex="이 밸브의 정비 주기 지났어?">주기초과 (RAG)</button>
           <button data-ex="이 밸브는 다음 정비 예정일이 언제야?">다음예정일 (RAG)</button>
           <button data-ex="정비 주기 기준으로 우선 점검해야 할 부품 알려줘">우선부품 (RAG)</button>
-          <button data-ex="최근 누설 이력을 고려하면 그랜드패킹을 교체해야 해?">교체검토 (RAG)</button>
+          <button data-ex="최근 누설 이력을 고려하면 그랜드패킹을 교체해야 해?">교체검토 (CMMS)</button>
+          <button data-ex="글로브 밸브 그랜드패킹 교체 기준 알려줘">매뉴얼 교체기준 (RAG)</button>
+          <button data-ex="게이트 밸브 분해 절차 알려줘">매뉴얼 절차 (RAG)</button>
+          <button data-ex="밸브 누설 시 조치 방법 알려줘">매뉴얼 조치 (RAG)</button>
           <button data-ex="이 Globe Valve 주변 작업 공간 충분해?">작업공간 (공간)</button>
           <button data-ex="이 밸브는 2m 이상 고소작업에 해당돼?">고소작업 (공간)</button>
           <button data-ex="이 밸브 주변에 추락 위험이나 개구부가 있어?">추락위험 (공간)</button>
@@ -114,7 +117,8 @@
 </div>
 
 <!-- 모듈 로드 순서: AI(백엔드) → Viewer(SDK) → ActionExecutor(연결고리) → UI(오케스트레이션) -->
-<script src="src/ai/maintenanceDb.js"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS/RAG) -->
+<script src="src/ai/ragClient.js"></script>         <!-- [AI팀]   RagClient (매뉴얼 RAG 백엔드) -->
+<script src="src/ai/maintenanceDb.js"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS) -->
 <script src="src/ai/workflowDb.js"></script>        <!-- [AI팀]   WorkflowDB (mock 작업오더) -->
 <script src="src/ai/classifier.js"></script>        <!-- [AI팀]   AiBackend -->
 <script src="src/viewer/mockViewer.js"></script>    <!-- [솔루션팀] ViewerSDK -->

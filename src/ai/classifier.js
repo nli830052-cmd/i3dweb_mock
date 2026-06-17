@@ -345,7 +345,51 @@
     if (opts.simulateError) {
       throw { status: 500, body: { error: "INTERNAL_ERROR", message: "AI 응답 생성 중 오류가 발생했습니다.", requestId: (request.sessionId || "sess") + "-" + Date.now() } };
     }
+    // 매뉴얼/절차 질의 → 실제 RAG 백엔드 검색 (grounded ANSWER)
+    if (isManualQuery(request.message || "")) {
+      try {
+        const vt = valveTypeOf(request);
+        const r = await window.RagClient.search(request.message, vt);
+        if (r && r.hitCount > 0) return buildRagAnswer(request.message, vt, r);
+      } catch (e) {
+        return { responseType: "ANSWER", message: "매뉴얼 RAG 서버에 연결하지 못했습니다.",
+          answer: "RAG 백엔드를 실행했는지 확인하세요: python backend/rag_server.py (http://localhost:8090)",
+          actions: [], confidence: 0.3, grounded: false };
+      }
+      // 검색 결과 없으면 아래 로컬 분류로 폴백
+    }
     return classifyRuleBased(request);
+  }
+
+  /* ── RAG: 매뉴얼/절차 질의 판별 + 밸브종류 + 답변 빌드 ──── */
+  // 6개 카테고리 트리거와 겹치지 않는 "매뉴얼/표준" 신호만 사용
+  function isManualQuery(text) {
+    return has(text, ["절차", "방법", "어떻게", "교체 기준", "보수 기준", "점검 기준",
+      "토크", "예비품", "특별점검", "매뉴얼", "지침", "조치 기준", "이상징후"]);
+  }
+  function valveTypeOf(request) {
+    const t = request.message || "";
+    if (/게이트|gate/i.test(t)) return "gate";
+    if (/글로브|globe/i.test(t)) return "globe";
+    const tag = request.viewerContext && request.viewerContext.currentTag;
+    const map = { "GV-101A": "globe", "TG-VLV-205": "globe", "GV-102A": "gate" };
+    return (tag && map[tag]) || null;   // 없으면 전체 검색
+  }
+  function buildRagAnswer(query, vt, r) {
+    const top = r.hits[0];
+    const body = top.text.replace(/^\[[^\]]*\]\n?/, "");   // 빵부스러기 줄 제거
+    const vlabel = vt === "gate" ? "Gate 밸브 " : vt === "globe" ? "Globe 밸브 " : "";
+    return {
+      responseType: "ANSWER",
+      message: vlabel + "매뉴얼에서 관련 내용을 찾았습니다.",
+      answer: body,
+      actions: [],
+      confidence: Math.min(0.95, Number((top.score + 0.3).toFixed(2))),
+      grounded: true,
+      sources: r.hits.map((h) => ({ documentName: h.doc, section: h.sectionPath, page: h.page })),
+      retrieval: { source: "유지보수 매뉴얼 RAG (bge-m3)", query: query, hitCount: r.hitCount, owner: "ai",
+        data: r.hits.map((h) => ({ score: h.score, id: h.id, valveType: h.valveType, heading: h.heading })) }
+    };
   }
 
   window.AiBackend = { requestAiResponse, RESPONSE_TYPES };
