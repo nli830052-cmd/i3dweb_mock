@@ -40,49 +40,6 @@ def ollama_generate(prompt, num_predict=600):
     text = data.get("response", "")
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
 
-INTENTS = [
-    "SEARCH", "JUMP", "ROTATE", "HIDE", "SHOW", "ISOLATE", "FILTER",
-    "MOVE_INSP", "PATH", "ROUTE", "NEAREST", "WORKER", "ZONE",
-    "MAINT_HISTORY", "MAINT_CYCLE", "WORK_CONDITION", "WORK_STAGE", "MANUAL", "GENERAL",
-]
-
-INTENT_PROMPT = (
-    "당신은 i3DWEB 설비 정비 어시스턴트의 의도 분류기입니다.\n"
-    "사용자 문장을 아래 intent 중 정확히 하나로 분류해 JSON만 출력하세요. 설명 금지.\n\n"
-    "- SEARCH: 이름/타입으로 설비 검색 (펌프 찾아줘)\n"
-    "- JUMP: 특정 태그 위치로 이동\n"
-    "- ROTATE: 시점 회전(뒷면/측면)\n"
-    "- HIDE: 객체 숨기기\n"
-    "- SHOW: 숨긴 객체 다시 표시\n"
-    "- ISOLATE: 특정 계통만 표시\n"
-    "- FILTER: 특정 타입만 표시\n"
-    "- MOVE_INSP: 점검 위치로 이동\n"
-    "- PATH: 경로/비상 탈출 표시\n"
-    "- ROUTE: 오늘 점검 순서 안내\n"
-    "- NEAREST: 가장 가까운 점검 대상\n"
-    "- WORKER: 점검자가 서는 위치\n"
-    "- ZONE: 정비 작업 구역 표시\n"
-    "- MAINT_HISTORY: 정비 이력/누설/가스켓/점검 결과/Open Point\n"
-    "- MAINT_CYCLE: 정비 주기/다음 예정일/우선 부품/교체 판단\n"
-    "- WORK_CONDITION: 작업 공간/높이/고소작업/추락 위험\n"
-    "- WORK_STAGE: 현재 정비 진행 단계/다음 단계/체크리스트/누락 항목 (예: '지금 어디까지 했어', '정비 어디쯤')\n"
-    "- MANUAL: 절차/방법/기준 등 매뉴얼 문서에서 찾을 질문\n"
-    "- GENERAL: 위에 안 맞는 일반 질문\n\n"
-    "출력: {\"intent\":\"WORK_STAGE\"}\n"
-    "예) '이 밸브 지금 어디까지 했어?' -> {\"intent\":\"WORK_STAGE\"}\n"
-    "예) '정비 어디쯤이야?' -> {\"intent\":\"WORK_STAGE\"}\n"
-    "예) '펌프 찾아줘' -> {\"intent\":\"SEARCH\"}\n"
-    "예) '그랜드패킹 교체 절차' -> {\"intent\":\"MANUAL\"}\n"
-    "예) '정비 주기 지났어?' -> {\"intent\":\"MAINT_CYCLE\"}\n/no_think\n\n"
-    "문장: \"%s\"\n출력:"
-)
-
-def classify_intent(message):
-    out = ollama_generate(INTENT_PROMPT % message, num_predict=40)
-    m = re.search(r'"intent"\s*:\s*"([A-Z_]+)"', out)
-    intent = m.group(1) if m else None
-    return intent if intent in INTENTS else "GENERAL"
-
 # ── action JSON 생성(plan) ──────────────────────────────
 ALLOWED_ACTIONS = {
     "JUMP_TO", "SEARCH_EQUIPMENT", "ROTATE_VIEW", "HIDE_OBJECT", "SHOW_OBJECT",
@@ -267,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/rag/search", "/api/rag/answer", "/api/ai/route", "/api/ai/plan"):
+        if path not in ("/api/rag/search", "/api/rag/answer", "/api/ai/plan"):
             return self._json(404, {"error": "NOT_FOUND"})
         try:
             n = int(self.headers.get("Content-Length", 0))
@@ -277,14 +234,6 @@ class Handler(BaseHTTPRequestHandler):
         query = (req.get("query") or "").strip()
         if not query:
             return self._json(400, {"error": "EMPTY_QUERY"})
-
-        # 의도 분류 (LLM) — 벡터검색 불필요
-        if path == "/api/ai/route":
-            try:
-                intent = classify_intent(query)
-            except Exception as e:
-                return self._json(502, {"error": "LLM_UNAVAILABLE", "message": str(e)})
-            return self._json(200, {"query": query, "intent": intent, "model": LLM_MODEL})
 
         # action JSON 생성 (LLM) — 벡터검색 불필요
         if path == "/api/ai/plan":

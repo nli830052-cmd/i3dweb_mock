@@ -422,66 +422,6 @@
       answer: plan.message || "확인이 필요합니다.", actions: [], confidence: 0.6, plan: planMeta };
   }
 
-  /* ── LLM이 분류한 intent → 기존 핸들러로 라우팅 ─────────── */
-  async function dispatchByIntent(intent, request) {
-    const text = request.message || "";
-    const ctxTag = (request.viewerContext && request.viewerContext.currentTag) || null;
-    const tag = extractTag(text) || ctxTag;
-    const type = detectType(text);
-    const dt = tag || "GV-101A";   // 답변형 기본 대상
-    switch (intent) {
-      case "SEARCH": {
-        const q = text.replace(/(찾아\S*|검색\S*|어디\S*|보여\S*|줘|해줘|알려\S*|있어\S*)/g, "").trim() || (type && type.ko) || text;
-        return mkAction("SEARCH_EQUIPMENT", action({ type: "SEARCH_EQUIPMENT", query: q }), `"${q}" 설비를 검색합니다.`);
-      }
-      case "JUMP":
-        return tag ? mkAction("JUMP_TO", action({ type: "JUMP_TO", targetType: "TAG", targetValue: tag }), `${tag} 위치로 이동합니다.`) : null;
-      case "ROTATE": {
-        const dir = has(text, ["측면", "옆"]) ? "left" : "back";
-        return mkAction("ROTATE_VIEW", action({ type: "ROTATE_VIEW", params: { direction: dir, angle: dir === "back" ? 180 : 90 } }), `${dir === "back" ? "후면" : "측면"} 방향으로 시점 전환합니다.`);
-      }
-      case "HIDE": {
-        const sel = tag ? { targetType: "TAG", targetValue: tag } : (type ? { targetType: "TYPE", targetValue: type.code } : null);
-        return sel ? mkAction("HIDE_OBJECT", action(Object.assign({ type: "HIDE_OBJECT" }, sel)), "객체를 숨김 처리합니다.") : null;
-      }
-      case "SHOW": {
-        const sel = type ? { targetType: "TYPE", targetValue: type.code } : (tag ? { targetType: "TAG", targetValue: tag } : { targetType: "ALL", targetValue: "ALL" });
-        return mkAction("SHOW_OBJECT", action(Object.assign({ type: "SHOW_OBJECT" }, sel)), "객체를 다시 표시합니다.");
-      }
-      case "ISOLATE":
-        return mkAction("ISOLATE_SYSTEM", action({ type: "ISOLATE_SYSTEM", targetValue: detectSystem(text) }), "선택한 계통만 표시합니다.");
-      case "FILTER":
-        return type ? mkAction("FILTER_BY_TYPE", action({ type: "FILTER_BY_TYPE", targetValue: type.code }), `${type.ko}만 표시합니다.`) : null;
-      case "MOVE_INSP":
-        return mkAction("MOVE_TO_INSPECTION", action({ type: "MOVE_TO_INSPECTION", targetType: tag ? "TAG" : "SELECTED", targetValue: tag }), "점검 위치로 이동합니다.");
-      case "PATH": {
-        const target = (text.includes("비상") || text.includes("대피")) ? "EMERGENCY_EXIT" : (text.includes("조작") ? "OPERATION_POS" : (tag || "OPERATION_POS"));
-        return mkAction("SHOW_PATH", action({ type: "SHOW_PATH", target: target }), "경로를 표시합니다.");
-      }
-      case "ROUTE":
-        return mkAction("SHOW_INSPECTION_ROUTE", action({ type: "SHOW_INSPECTION_ROUTE" }), "오늘 점검 순서를 안내합니다.");
-      case "NEAREST":
-        return mkAction("FIND_NEAREST", action({ type: "FIND_NEAREST", params: { filter: "inspection" } }), "가장 가까운 점검 대상으로 이동합니다.");
-      case "WORKER":
-        return mkAction("SHOW_WORKER_POSITION", action({ type: "SHOW_WORKER_POSITION", targetValue: tag }), "점검자 위치를 표시합니다.");
-      case "ZONE":
-        return mkAction("SHOW_WORK_ZONE", action({ type: "SHOW_WORK_ZONE", targetValue: tag }), "정비 작업 구역을 표시합니다.");
-      case "MAINT_HISTORY": return buildMaintenanceAnswer(dt, text);
-      case "MAINT_CYCLE": return buildCycleAnswer(dt, text);
-      case "WORK_CONDITION": return buildWorkConditionAnswer(dt, text);
-      case "WORK_STAGE": return buildStageAnswer(dt, text);
-      case "MANUAL": {
-        try {
-          const vt = valveTypeOf(request);
-          const r = await window.RagClient.answer(text, vt);
-          if (r && r.hitCount > 0) return buildRagAnswer(text, vt, r);
-        } catch (e) { /* fall through */ }
-        return null;
-      }
-      default: return null;
-    }
-  }
-
   /* ── RAG: 매뉴얼/절차 질의 판별 + 밸브종류 + 답변 빌드 ──── */
   // 6개 카테고리 트리거와 겹치지 않는 "매뉴얼/표준" 신호만 사용
   function isManualQuery(text) {
