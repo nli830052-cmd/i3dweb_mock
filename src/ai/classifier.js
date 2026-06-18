@@ -75,8 +75,8 @@
       return mkAction("ROTATE_VIEW", action({ type: "ROTATE_VIEW", params: { direction: dir, angle: angle } }),
         `선택한 장비의 ${dir === "back" ? "후면" : "측면"} 방향으로 View를 전환합니다. 장비 중심 기준 ${angle}도 회전합니다.`);
     }
-    // 6) 검색 (태그 없이 이름/타입으로 찾기)
-    if (has(text, ["찾아", "검색", "어디"]) && !tag) {
+    // 6) 검색 (태그 없이 이름/타입으로 찾기) — "어디"는 모호해 규칙에서 제외(LLM plan에 위임)
+    if (has(text, ["찾아", "검색"]) && !tag) {
       const query = text.replace(/(찾아\S*|검색\S*|어디\S*|보여\S*|줘|해줘|알려\S*|있어\S*)/g, "").trim() || (type && type.ko) || text;
       return mkAction("SEARCH_EQUIPMENT", action({ type: "SEARCH_EQUIPMENT", query: query }),
         `"${query}" 설비를 검색합니다. 가장 가까운 설비로 이동하고 속성정보를 표시합니다.`);
@@ -363,18 +363,63 @@
     const ruleRes = classifyRuleBased(request);
     if (!ruleRes._fallback) return ruleRes;   // 명확히 매칭됨 → 즉시 반환
 
-    // 2차: 규칙이 못 잡음 → LLM(Qwen3) 의도 분류 후 라우팅 (동의어/말투 대응)
+    // 2차: 규칙이 못 잡음 → LLM(Qwen3)이 action JSON 직접 생성 → 실행 (도구+파라미터까지 LLM이)
     try {
-      const r = await window.RagClient.route(request.message);
-      if (r && r.intent && r.intent !== "GENERAL") {
-        const dispatched = await dispatchByIntent(r.intent, request);
-        if (dispatched) {
-          dispatched.classify = { model: r.model || "qwen3:8b", intent: r.intent };
-          return dispatched;
-        }
+      const ctx = request.viewerContext && request.viewerContext.currentTag;
+      const plan = await window.RagClient.plan(request.message, ctx);
+      if (plan && plan.valid) {
+        const out = await executePlan(plan, request);
+        if (out) return out;
       }
-    } catch (e) { /* LLM/서버 미연결 → 규칙 폴백 사용 */ }
+    } catch (e) { /* LLM/서버 미연결·plan 무효 → 규칙 폴백 */ }
     return ruleRes;
+  }
+
+  /* ── LLM이 생성한 action JSON(plan)을 실행 → 응답 객체 ──── */
+  const VIEWER_TYPES = ["JUMP_TO", "SEARCH_EQUIPMENT", "ROTATE_VIEW", "HIDE_OBJECT", "SHOW_OBJECT",
+    "ISOLATE_SYSTEM", "FILTER_BY_TYPE", "MOVE_TO_INSPECTION", "SHOW_PATH",
+    "SHOW_INSPECTION_ROUTE", "FIND_NEAREST", "SHOW_WORKER_POSITION", "SHOW_WORK_ZONE"];
+
+  async function executePlan(plan, request) {
+    const text = request.message || "";
+    const ctxTag = (request.viewerContext && request.viewerContext.currentTag) || null;
+    const acts = (plan.actions || []).map((a) => Object.assign({ params: {} }, a));
+    const viewerActs = acts.filter((a) => VIEWER_TYPES.indexOf(a.type) >= 0);
+    const queryAct = acts.find((a) => a.type && a.type.indexOf("QUERY_") === 0);
+    const ragAct = acts.find((a) => a.type === "MANUAL_RAG");
+    const planMeta = { model: plan.model || "qwen3:8b", actions: plan.actions };
+
+    // 답변부 (사실은 DB/RAG에 위임 — 환각 방지)
+    let ansObj = null;
+    if (ragAct) {
+      try {
+        const vt = ragAct.valveType && ragAct.valveType !== "null" ? ragAct.valveType : valveTypeOf(request);
+        const r = await window.RagClient.answer(ragAct.query || text, vt);
+        if (r && r.hitCount > 0) ansObj = buildRagAnswer(ragAct.query || text, vt, r);
+      } catch (e) { /* ignore */ }
+    } else if (queryAct) {
+      const tv = queryAct.targetValue || ctxTag || "GV-101A";
+      if (queryAct.type === "QUERY_MAINTENANCE") ansObj = buildMaintenanceAnswer(tv, text);
+      else if (queryAct.type === "QUERY_CYCLE") ansObj = buildCycleAnswer(tv, text);
+      else if (queryAct.type === "QUERY_SPATIAL") ansObj = buildWorkConditionAnswer(tv, text);
+      else if (queryAct.type === "QUERY_WORKFLOW") ansObj = buildStageAnswer(tv, text);
+    }
+
+    if (viewerActs.length && ansObj) {
+      ansObj.responseType = "ANSWER_WITH_ACTION";
+      ansObj.actions = viewerActs;
+      if (plan.message) ansObj.message = plan.message;
+      ansObj.plan = planMeta;
+      return ansObj;
+    }
+    if (viewerActs.length) {
+      return { responseType: "ACTION", message: plan.message || "실행합니다.", answer: null,
+        actions: viewerActs, confidence: 0.9, plan: planMeta };
+    }
+    if (ansObj) { ansObj.plan = planMeta; return ansObj; }
+    // 순수 ANSWER
+    return { responseType: "ANSWER", message: plan.message || "요청을 처리합니다.",
+      answer: plan.message || "확인이 필요합니다.", actions: [], confidence: 0.6, plan: planMeta };
   }
 
   /* ── LLM이 분류한 intent → 기존 핸들러로 라우팅 ─────────── */

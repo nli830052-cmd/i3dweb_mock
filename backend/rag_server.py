@@ -83,6 +83,76 @@ def classify_intent(message):
     intent = m.group(1) if m else None
     return intent if intent in INTENTS else "GENERAL"
 
+# ── action JSON 생성(plan) ──────────────────────────────
+ALLOWED_ACTIONS = {
+    "JUMP_TO", "SEARCH_EQUIPMENT", "ROTATE_VIEW", "HIDE_OBJECT", "SHOW_OBJECT",
+    "ISOLATE_SYSTEM", "FILTER_BY_TYPE", "MOVE_TO_INSPECTION", "SHOW_PATH",
+    "SHOW_INSPECTION_ROUTE", "FIND_NEAREST", "SHOW_WORKER_POSITION", "SHOW_WORK_ZONE",
+    "QUERY_MAINTENANCE", "QUERY_CYCLE", "QUERY_SPATIAL", "QUERY_WORKFLOW", "MANUAL_RAG",
+}
+
+PLAN_PROMPT = (
+    "당신은 i3DWEB 설비 정비 어시스턴트의 행동 계획기입니다.\n"
+    "사용자 문장을 보고 아래 형식의 JSON만 출력하세요. 설명/주석 절대 금지.\n\n"
+    '형식: {"responseType":"ACTION|ANSWER|ANSWER_WITH_ACTION","message":"한 줄","actions":[...]}\n\n'
+    "가능한 action.type:\n"
+    "[Viewer 조작]\n"
+    '- JUMP_TO {"targetType":"TAG","targetValue":"<태그>"}  // 특정 태그로 이동\n'
+    '- SEARCH_EQUIPMENT {"query":"<설비명/타입>"}  // 태그 모를 때 이름/타입 검색\n'
+    '- ROTATE_VIEW {"params":{"direction":"back|left","angle":180}}\n'
+    '- HIDE_OBJECT {"targetType":"TYPE|TAG","targetValue":"VALVE|PUMP|<태그>"}\n'
+    '- SHOW_OBJECT {"targetType":"TYPE|TAG|ALL","targetValue":"..."}\n'
+    '- ISOLATE_SYSTEM {"targetValue":"<계통명 또는 null>"}\n'
+    '- FILTER_BY_TYPE {"targetValue":"PUMP|VALVE|MOTOR|BEARING|HEATEX|TANK"}\n'
+    '- MOVE_TO_INSPECTION {"targetValue":"<태그 또는 null>"}\n'
+    '- SHOW_PATH {"target":"<태그>|OPERATION_POS|EMERGENCY_EXIT"}\n'
+    '- SHOW_INSPECTION_ROUTE {}\n'
+    '- FIND_NEAREST {}\n'
+    '- SHOW_WORKER_POSITION {"targetValue":"<태그 또는 null>"}\n'
+    '- SHOW_WORK_ZONE {"targetValue":"<태그 또는 null>"}\n'
+    "[데이터 조회 — 사실을 지어내지 말 것]\n"
+    '- QUERY_MAINTENANCE {"targetValue":"<태그>","field":"history|last_overhaul|gasket|leak|recurring|result|open_point"}\n'
+    '- QUERY_CYCLE {"targetValue":"<태그>","field":"overdue|next_due|parts|replace"}\n'
+    '- QUERY_SPATIAL {"targetValue":"<태그>","field":"clearance|height|fall_hazard"}\n'
+    '- QUERY_WORKFLOW {"targetValue":"<태그>","field":"current|next|checklist|prep_incomplete|assembly_missing"}\n'
+    "[매뉴얼 문서]\n"
+    '- MANUAL_RAG {"query":"<검색어>","valveType":"gate|globe|null"}\n\n'
+    "규칙:\n"
+    "- 태그(TG-PMP-101, GV-101A 등)가 문장에 있으면 SEARCH가 아니라 JUMP_TO 등 태그 기반 액션 우선.\n"
+    "- 이력/주기/공간/작업단계 질문은 QUERY_*, 절차/방법/기준은 MANUAL_RAG.\n"
+    "- 단순 인사/잡담은 actions:[] 로.\n"
+    "- 문장에 태그가 없으면 현재 선택 태그를 targetValue로 사용. 현재 선택 태그: %s\n\n"
+    "예시:\n"
+    '"TG-PMP-101 확인할껀데 어디있는지 알려줘" -> {"responseType":"ACTION","message":"TG-PMP-101 위치로 이동합니다.","actions":[{"type":"JUMP_TO","targetType":"TAG","targetValue":"TG-PMP-101"}]}\n'
+    '"펌프 찾아줘" -> {"responseType":"ACTION","message":"펌프를 검색합니다.","actions":[{"type":"SEARCH_EQUIPMENT","query":"펌프"}]}\n'
+    '"이 밸브 정비 어디쯤?" -> {"responseType":"ANSWER","message":"작업 단계를 확인합니다.","actions":[{"type":"QUERY_WORKFLOW","targetValue":"GV-101A","field":"current"}]}\n'
+    '"그랜드패킹 교체 절차 알려줘" -> {"responseType":"ANSWER","message":"매뉴얼을 확인합니다.","actions":[{"type":"MANUAL_RAG","query":"그랜드패킹 교체 절차","valveType":"globe"}]}\n/no_think\n\n'
+    '문장: "%s"\n출력:'
+)
+
+def _extract_json(text):
+    s, e = text.find("{"), text.rfind("}")
+    if s < 0 or e < 0:
+        return None
+    try:
+        return json.loads(text[s:e + 1])
+    except Exception:
+        return None
+
+def make_plan(message, current_tag):
+    out = ollama_generate(PLAN_PROMPT % (current_tag or "없음", message), num_predict=320)
+    obj = _extract_json(out)
+    if not isinstance(obj, dict):
+        return {"valid": False, "raw": out[:200]}
+    rt = obj.get("responseType")
+    acts = obj.get("actions")
+    if rt not in ("ACTION", "ANSWER", "ANSWER_WITH_ACTION") or not isinstance(acts, list):
+        return {"valid": False, "raw": out[:200]}
+    for a in acts:
+        if not isinstance(a, dict) or a.get("type") not in ALLOWED_ACTIONS:
+            return {"valid": False, "raw": out[:200]}
+    return {"valid": True, "responseType": rt, "message": obj.get("message", ""), "actions": acts, "model": LLM_MODEL}
+
 def build_answer_prompt(query, hits):
     ctx = "\n\n".join(
         "- (%s · p.%s)\n%s" % (m["section_path"], m["page"], _strip_crumb(m["text"]))
@@ -197,7 +267,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/rag/search", "/api/rag/answer", "/api/ai/route"):
+        if path not in ("/api/rag/search", "/api/rag/answer", "/api/ai/route", "/api/ai/plan"):
             return self._json(404, {"error": "NOT_FOUND"})
         try:
             n = int(self.headers.get("Content-Length", 0))
@@ -215,6 +285,13 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json(502, {"error": "LLM_UNAVAILABLE", "message": str(e)})
             return self._json(200, {"query": query, "intent": intent, "model": LLM_MODEL})
+
+        # action JSON 생성 (LLM) — 벡터검색 불필요
+        if path == "/api/ai/plan":
+            try:
+                return self._json(200, make_plan(query, req.get("currentTag")))
+            except Exception as e:
+                return self._json(502, {"error": "LLM_UNAVAILABLE", "message": str(e)})
         valve = req.get("valveType")
         top_k = int(req.get("topK") or sm.TOP_K)
         min_score = float(req.get("minScore") if req.get("minScore") is not None else sm.MIN_SCORE)

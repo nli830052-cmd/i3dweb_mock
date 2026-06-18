@@ -59,14 +59,14 @@
       return;
     }
 
-    // [1b] (규칙 미매칭 시) LLM 의도 분류 — AI팀 영역
-    if (res.classify) {
+    // [1b] (규칙 미매칭 시) LLM이 action JSON 직접 생성 — AI팀 영역
+    if (res.plan) {
       pushFlow({ owner: "ai", dir: "req", transport: "llm",
-        endpoint: `${res.classify.model}.classify(message)`, meta: "의도 분류(규칙 미매칭)",
-        payload: { model: res.classify.model, message: text } });
+        endpoint: `${res.plan.model}.plan(message)`, meta: "action JSON 생성(규칙 미매칭)",
+        payload: { model: res.plan.model, message: text } });
       pushFlow({ owner: "ai", dir: "res", transport: "llm",
-        endpoint: `intent = ${res.classify.intent}`, meta: "로컬 추론",
-        payload: { intent: res.classify.intent } });
+        endpoint: "action JSON", meta: "로컬 추론",
+        payload: { actions: res.plan.actions } });
     }
 
     // [2a] (grounded 응답 시) AI 백엔드 내부 RAG/CMMS 조회 — AI팀 영역

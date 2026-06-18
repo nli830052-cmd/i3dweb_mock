@@ -29,6 +29,15 @@
   function answer(query, valveType, topK) { return _post("/api/rag/answer", query, valveType, topK); }
   // LLM 의도 분류
   function route(query) { return _post("/api/ai/route", query); }
+  // LLM action JSON 생성(plan)
+  async function plan(query, currentTag) {
+    const res = await fetch(BASE + "/api/ai/plan", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: query, currentTag: currentTag || undefined })
+    });
+    if (!res.ok) throw { status: res.status, body: await res.json().catch(() => ({})) };
+    return await res.json();
+  }
 
-  window.RagClient = { search, answer, route, BASE };
+  window.RagClient = { search, answer, route, plan, BASE };
 })();
