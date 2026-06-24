@@ -340,11 +340,33 @@
    * AI 백엔드 호출 진입점 (HTTP POST /api/ai/chat 흉내).
    * 실제 연동 시 fetch('/api/ai/chat')로 교체.
    */
+  // 근거형 질의(이력/주기/공간/단계/매뉴얼)인가 — 통합 챗(LLM+RAG+DB) 대상 판별
+  function isWorkConditionQuery(text) {
+    return has(text, ["작업 공간", "공간 충분", "공간이", "간섭", "사다리", "작업 발판", "작업발판", "발판", "고소작업", "추락", "개구부", "2m 이상"]);
+  }
+  function isGroundedQuery(text) {
+    return isManualQuery(text) || isWorkConditionQuery(text) || isStageQuery(text) || isCycleQuery(text) || isMaintenanceQuery(text);
+  }
+  // 서버 통합 챗 응답 → 프런트 표준 응답 객체로 보정
+  function adaptChat(r) {
+    return Object.assign({ message: "", actions: [], confidence: 0.9 }, r);
+  }
+
   async function requestAiResponse(request, opts) {
     opts = opts || {};
     if (opts.simulateError) {
       throw { status: 500, body: { error: "INTERNAL_ERROR", message: "AI 응답 생성 중 오류가 발생했습니다.", requestId: (request.sessionId || "sess") + "-" + Date.now() } };
     }
+
+    // ★ 통합 챗 우선: 근거형 데이터/매뉴얼 질의는 백엔드(LLM+RAG+DB)로 — 5단 구조 답변
+    if (isGroundedQuery(request.message || "")) {
+      try {
+        const ctx = request.viewerContext && request.viewerContext.currentTag;
+        const r = await window.RagClient.chat(request.message, ctx, request.sessionId);
+        if (r && (r.grounded || r.category === "manual")) return adaptChat(r);
+      } catch (e) { /* 백엔드/Ollama 미가동 → 아래 클라이언트 폴백 */ }
+    }
+
     // 매뉴얼/절차 질의 → RAG 검색 + LLM(Qwen3) 종합 답변
     if (isManualQuery(request.message || "")) {
       try {
@@ -353,7 +375,7 @@
         if (r && r.hitCount > 0) return buildRagAnswer(request.message, vt, r);
       } catch (e) {
         return { responseType: "ANSWER", message: "매뉴얼 RAG 서버에 연결하지 못했습니다.",
-          answer: "RAG 백엔드를 실행했는지 확인하세요: python backend/rag_server.py (http://localhost:8090) · Ollama + qwen3:8b 필요",
+          answer: "RAG 백엔드를 실행했는지 확인하세요: python backend/rag_server.py (http://localhost:8090) · Ollama + qwen3.5:9b 필요",
           actions: [], confidence: 0.3, grounded: false };
       }
       // 검색 결과 없으면 아래 로컬 분류로 폴백
@@ -387,7 +409,7 @@
     const viewerActs = acts.filter((a) => VIEWER_TYPES.indexOf(a.type) >= 0);
     const queryAct = acts.find((a) => a.type && a.type.indexOf("QUERY_") === 0);
     const ragAct = acts.find((a) => a.type === "MANUAL_RAG");
-    const planMeta = { model: plan.model || "qwen3:8b", actions: plan.actions };
+    const planMeta = { model: plan.model || "qwen3.5:9b", actions: plan.actions };
 
     // 답변부 (사실은 DB/RAG에 위임 — 환각 방지)
     let ansObj = null;
@@ -449,7 +471,7 @@
       retrieval: { source: "유지보수 매뉴얼 벡터검색 (bge-m3)",
         query: query, hitCount: r.hitCount, owner: "ai",
         data: (r.hits || []).map((h) => ({ score: h.score, id: h.id, valveType: h.valveType, heading: h.heading })) },
-      generation: { model: r.model || "qwen3:8b", engine: "Ollama (로컬)", chunks: r.hitCount }
+      generation: { model: r.model || "qwen3.5:9b", engine: "Ollama (로컬)", chunks: r.hitCount }
     };
   }
 

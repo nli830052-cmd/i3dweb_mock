@@ -3,41 +3,116 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>i3DWEB AI Action Test Page</title>
+<title>i3DWEB · AI Assistant</title>
 <link rel="stylesheet" href="src/ui/styles.css" />
 </head>
 <body>
-<header>
-  <h1>i3DWEB AI Action Test Page</h1>
-  <p>채팅 입력 → AI 응답(JSON) → responseType 분기 → Mock Viewer 실행 · 설비 찾기/이동/숨김/격리/회전 (mock)</p>
+
+<!-- ====================== 상단 i3DWEB 헤더 바 ====================== -->
+<header class="i3d-titlebar">
+  <div class="brand">
+    <span class="brand-logo">i3D</span>
+    <span class="brand-name">i3DWEB</span>
+    <span class="brand-sub">Plant Digital Twin</span>
+  </div>
+  <nav class="i3d-menu">
+    <span class="active">홈</span><span>보기</span><span>측정</span><span>마크업</span><span>도구</span><span>설정</span>
+  </nav>
+  <div class="i3d-account">
+    <span class="dot"></span> 발전1팀 · 점검 세션
+  </div>
 </header>
 
-<div class="layout">
-  <!-- LEFT : i3DWEB 화면 (Mock Viewer) -->
-  <div class="col col-viewer">
-    <div class="card card-fill">
-      <h2>i3DWEB 화면 (Mock Viewer)</h2>
-      <div class="viewer" id="viewer">
-        <div class="vtopbar">
-          <span>👁 시점: <b id="viewDir">전면</b></span>
-          <span id="viewFilter">전체 표시</span>
-        </div>
-        <div class="cube">📦</div>
-        <div>
-          <div class="label">현재 선택된 TAG</div>
-          <div class="tag" id="viewerTag">—</div>
-        </div>
-        <div class="status idle" id="viewerStatus">대기 중 (idle)</div>
-        <div class="vinfo" id="viewerInfo"></div>
-        <div class="scene" id="scene"></div>
+<!-- ====================== 작업 영역: 좌(i3DWEB) / 우(챗봇) ====================== -->
+<div class="workspace">
+
+  <!-- ===== 좌측: i3DWEB 애플리케이션 창 ===== -->
+  <section class="i3d-app">
+
+    <!-- 툴바 -->
+    <div class="i3d-toolbar">
+      <div class="tb-group">
+        <button class="tb-btn" title="이동">이동</button>
+        <button class="tb-btn" title="회전">회전</button>
+        <button class="tb-btn" title="확대">확대</button>
+        <button class="tb-btn" title="단면">단면</button>
+        <button class="tb-btn" title="측정">측정</button>
+        <button class="tb-btn" title="마크업">마크업</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="tb-btn" title="숨김">숨김</button>
+        <button class="tb-btn" title="격리">격리</button>
+        <button class="tb-btn" title="전체표시">전체표시</button>
+        <button class="tb-btn" title="홈뷰">홈뷰</button>
+      </div>
+      <div class="tb-status">
+        <span>시점: <b id="viewDir">전면</b></span>
+        <span class="tb-filter" id="viewFilter">전체 표시</span>
       </div>
     </div>
-  </div>
 
-  <!-- RIGHT : 채팅방 + 디버그 패널 -->
-  <div class="col col-chat">
+    <div class="i3d-body">
+
+      <!-- 좌측 사이드 패널: 탐색 트리 + Tag 검색 + 속성 정보 -->
+      <aside class="i3d-side">
+        <div class="panel">
+          <div class="panel-head">탐색기 · 설비 트리</div>
+          <div class="panel-body tree" id="i3dTree"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">Tag 검색</div>
+          <div class="panel-body">
+            <div class="tag-search">
+              <input id="tagSearch" type="text" placeholder="Tag 검색 (예: GV-101A)" />
+              <button id="tagSearchBtn">검색</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">속성 정보</div>
+          <div class="panel-body prop">
+            <table class="prop-tbl">
+              <tr><th>Tag</th><td id="propTag">—</td></tr>
+              <tr><th>명칭</th><td id="propName">—</td></tr>
+              <tr><th>유형</th><td id="propType">—</td></tr>
+              <tr><th>계통</th><td id="propSystem">—</td></tr>
+              <tr><th>가시성</th><td id="propVis">—</td></tr>
+              <tr><th>거리</th><td id="propDist">—</td></tr>
+            </table>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 중앙: 3D 뷰포트 (Mock Viewer) -->
+      <div class="i3d-viewport">
+        <div class="viewer" id="viewer">
+          <div class="vtopbar">
+            <span>현재 선택 TAG: <b id="viewerTag">—</b></span>
+            <span class="status idle" id="viewerStatus">대기 중 (idle)</span>
+          </div>
+          <div class="vinfo" id="viewerInfo"></div>
+          <div class="scene-stage">
+            <div class="floor-grid"></div>
+            <div class="scene" id="scene"></div>
+          </div>
+        </div>
+        <div class="vp-tag">3D 뷰어</div>
+      </div>
+
+    </div><!-- /i3d-body -->
+  </section>
+
+  <!-- ===== 드래그 스플리터 (좌/우 너비 조절) ===== -->
+  <div class="vsplit" id="vsplit" title="드래그하여 챗봇 패널 너비 조절 · 더블클릭 시 초기화"></div>
+
+  <!-- ===== 우측: AI 챗봇 ===== -->
+  <section class="chatdock">
+
     <div class="card card-chat">
-      <h2>채팅방</h2>
+      <h2 class="chat-head"><span>AI 어시스턴트</span><span id="chatClock" class="chat-clock"></span></h2>
       <div class="body chat-body">
         <div id="chat"><div class="empty">아직 대화가 없습니다.</div></div>
         <details class="examples-wrap">
@@ -78,8 +153,8 @@
             <button data-ex="분해 전 준비사항 중 완료 안 된 항목 있어?">미완료항목 (WO)</button>
             <button data-ex="조립 전 점검사항 중 누락된 항목 있어?">누락항목 (WO)</button>
             <button data-ex="TG-BRG-002가 어떤 설비야?">설명 (ANSWER)</button>
-            <button data-ex="TG-XXX-999로 이동해줘">❌ 없는 태그</button>
-            <button id="exServerError">❌ 백엔드 500</button>
+            <button data-ex="TG-XXX-999로 이동해줘">없는 태그</button>
+            <button id="exServerError">백엔드 500</button>
           </div>
         </details>
         <div class="input-row">
@@ -88,30 +163,36 @@
         </div>
       </div>
     </div>
+  </section>
+</div>
 
-    <div class="card">
-      <h2>API 흐름 (요청 / 응답)</h2>
-      <div class="body">
-        <div class="lane">
-          <span class="owner ai">AI팀</span> Frontend ⇄ AI 백엔드 (HTTP) ·
-          <span class="owner sol">솔루션팀</span> Frontend ⇄ i3DWEB Viewer (SDK call)
-          <br>각 단계를 클릭하면 payload를 펼쳐볼 수 있어요.
-        </div>
-        <div id="apiFlow"><div class="empty">입력을 보내면 API 시퀀스가 표시됩니다.</div></div>
+<!-- ===== 가로 드래그 스플리터 (상/하 높이 조절) ===== -->
+<div class="hsplit" id="hsplit" title="드래그하여 디버그 패널 높이 조절 · 더블클릭 시 초기화"></div>
+
+<!-- ====================== 하단: API 흐름 / JSON / 로그 (디버그 도크) ====================== -->
+<section class="debugdock">
+  <div class="card debug-flow">
+    <h2>API 흐름 (요청 / 응답)</h2>
+    <div class="body">
+      <div class="lane">
+        <span class="owner ai">AI팀</span> Frontend ⇄ AI 백엔드 (HTTP) ·
+        <span class="owner sol">솔루션팀</span> Frontend ⇄ i3DWEB Viewer (SDK call)
+        <br>각 단계를 클릭하면 payload를 펼쳐볼 수 있어요.
       </div>
-    </div>
-
-    <div class="card">
-      <h2>AI 응답 JSON</h2>
-      <div class="body"><pre id="jsonOut" class="empty">// 입력을 기다리는 중...</pre></div>
-    </div>
-
-    <div class="card">
-      <h2>Action 실행 로그</h2>
-      <div class="body"><pre id="logOut" class="empty">// 액션 실행 시 여기에 표시됩니다.</pre></div>
+      <div id="apiFlow"><div class="empty">입력을 보내면 API 시퀀스가 표시됩니다.</div></div>
     </div>
   </div>
-</div>
+
+  <div class="card">
+    <h2>AI 응답 JSON</h2>
+    <div class="body"><pre id="jsonOut" class="empty">// 입력을 기다리는 중...</pre></div>
+  </div>
+
+  <div class="card">
+    <h2>Action 실행 로그</h2>
+    <div class="body"><pre id="logOut" class="empty">// 액션 실행 시 여기에 표시됩니다.</pre></div>
+  </div>
+</section>
 
 <!-- 모듈 로드 순서: AI(백엔드) → Viewer(SDK) → ActionExecutor(연결고리) → UI(오케스트레이션) -->
 <script src="src/ai/ragClient.js"></script>         <!-- [AI팀]   RagClient (매뉴얼 RAG 백엔드) -->

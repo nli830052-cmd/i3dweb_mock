@@ -51,7 +51,7 @@
         meta: "~" + (30 + Math.floor(Math.random() * 40)) + "ms",
         payload: (err && err.body) || { error: "INTERNAL_ERROR" }
       });
-      renderBotError("⚠ AI 서버 오류로 응답을 받지 못했습니다. (HTTP " + status + ")");
+      renderBotError("AI 서버 오류로 응답을 받지 못했습니다. (HTTP " + status + ")");
       jsonEl.classList.remove("empty");
       jsonEl.textContent = JSON.stringify({ error: (err.body && err.body.error) || "INTERNAL_ERROR", status: status }, null, 2);
       setLog(["HTTP " + status + " — AI 백엔드 응답 실패", "responseType 판단 불가 → 액션 미실행"]);
@@ -108,7 +108,7 @@
         `responseType: ${res.responseType} (grounded=${!!res.grounded})`,
         `RAG/CMMS 조회: ${res.retrieval.source}`,
         `query: ${res.retrieval.query} → ${res.retrieval.hitCount} record(s)`,
-        `출처: ${(res.sources || []).map((s) => s.documentName).join(", ") || "-"}`,
+        `출처: ${(res.sources || []).map((s) => s.label || s.documentName).join(", ") || "-"}`,
         "Viewer 동작 없음 (답변 전용)"
       ]);
     } else {
@@ -153,18 +153,166 @@
   /* ── 렌더링 헬퍼 ──────────────────────────────────────── */
   function renderChat(res) {
     clearEmpty(chatEl);
+    const cat = categoryOf(res);
     const bot = document.createElement("div");
-    bot.className = "msg bot";
+    bot.className = "msg bot" + (cat.key ? " cat-" + cat.key : "");
     bot.innerHTML =
-      `<span class="badge ${res.responseType}">${res.responseType}</span>` +
-      (res.grounded ? `<span class="badge GROUNDED">grounded</span>` : "") +
-      `<div>${escapeHtml(res.message)}</div>` +
-      (res.answer ? `<div class="ans">${escapeHtml(res.answer)}</div>` : "") +
-      (res.sources && res.sources.length
-        ? `<div class="src">출처: ${res.sources.map((s) => escapeHtml(s.documentName + (s.section ? " · " + s.section : ""))).join(" / ")}</div>`
-        : "");
+      (cat.label ? `<div class="card-head"><span class="cat-chip cat-${cat.key}">${cat.label}</span></div>` : "") +
+      (res.headline ? `<div class="headline">${escapeHtml(res.headline)}</div>` : "") +     // ① 판정
+      (res.message ? `<div>${escapeHtml(res.message)}</div>` : "") +
+      (res.blocks && res.blocks.length ? renderBlocks(res.blocks) : detailBlock(cat.key, res)) + // ② 구조화 데이터
+      (res.answer ? `<div class="ans">${escapeHtml(res.answer)}</div>` : "") +              // ③ 종합 설명
+      (res.recommendation ? `<div class="reco">▸ ${escapeHtml(res.recommendation)}</div>` : "") + // ④ 권고
+      sourceBlock(res) +                                                                    // ⑤ 근거 칩
+      excerptBlock(res);                                                                    // ⑤ 매뉴얼 발췌(접이식)
     chatEl.appendChild(bot);
     chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  /* ── 답변 카테고리 판별 (응답 메타 → UI 카드 종류) ────── */
+  function categoryOf(res) {
+    const src = (res.retrieval && res.retrieval.source) || "";
+    if (src.indexOf("정비이력") >= 0) return { key: "maintenance", label: "정비이력" };
+    if (src.indexOf("정비주기") >= 0) return { key: "cycle", label: "정비주기" };
+    if (src.indexOf("Walkinside") >= 0) return { key: "spatial", label: "작업조건" };
+    if (src.indexOf("작업오더") >= 0) return { key: "workflow", label: "작업단계" };
+    if (res.generation || src.indexOf("매뉴얼") >= 0) return { key: "manual", label: "매뉴얼 RAG" };
+    if (res.responseType === "ACTION") return { key: "action", label: "뷰어 조작" };
+    return { key: "", label: "" };
+  }
+
+  function kv(label, val, warn) {
+    return `<span class="kv${warn ? " warn" : ""}"><i>${escapeHtml(label)}</i><b>${escapeHtml(String(val))}</b></span>`;
+  }
+
+  /* ── 카테고리별 구조화 상세 블록 (retrieval.data 기반) ── */
+  function detailBlock(key, res) {
+    const d = res.retrieval && res.retrieval.data;
+    if (key === "maintenance" && d) {
+      const c = [];
+      if (d.lastOverhaul && d.lastOverhaul.date) c.push(kv("최근 분해정비", d.lastOverhaul.date));
+      if (d.leaks) c.push(kv("누설 이력", d.leaks.length + "건", d.leaks.length > 0));
+      if (d.openPoints) c.push(kv("Open Point", d.openPoints.length + "건", d.openPoints.length > 0));
+      if (d.recurring) c.push(kv("반복 이슈", d.recurring));
+      return c.length ? `<div class="card-detail">${c.join("")}</div>` : "";
+    }
+    if (key === "cycle" && d) {
+      const c = [];
+      if (d.cycleMonths != null) c.push(kv("정비 주기", d.cycleMonths + "개월"));
+      if (d.lastMaintenance) c.push(kv("마지막 정비", d.lastMaintenance));
+      if (d.nextDue) c.push(kv("다음 예정", d.nextDue));
+      const extra = (d.priorityParts && d.priorityParts.length)
+        ? `<div class="card-list">우선 점검 부품: ${escapeHtml(d.priorityParts.join(", "))}</div>` : "";
+      return c.length ? `<div class="card-detail">${c.join("")}</div>${extra}` : "";
+    }
+    if (key === "spatial" && d) {
+      const c = [];
+      if (d.clearance) {
+        if (d.clearance.front != null) c.push(kv("전면 공간", d.clearance.front + "m"));
+        if (d.clearance.right != null) c.push(kv("우측 공간", d.clearance.right + "m", d.clearance.right < 1));
+      }
+      if (d.height != null) c.push(kv("작업 높이", d.height + "m", d.height >= 2));
+      if (d.fallHazard) c.push(kv("추락 위험", d.fallHazard.exists ? `${d.fallHazard.dir} ${d.fallHazard.distM}m` : "없음", d.fallHazard.exists));
+      return c.length ? `<div class="card-detail">${c.join("")}</div>` : "";
+    }
+    if (key === "workflow" && d) {
+      let html = "";
+      if (d.currentStage || d.nextStage) {
+        html += `<div class="card-flow"><span class="st">${escapeHtml(d.currentStage || "-")}</span>` +
+          `<span class="arrow">→</span><span class="st">${escapeHtml(d.nextStage || "-")}</span></div>`;
+      }
+      const lists = [];
+      if (d.checklist && d.checklist.length) lists.push(`체크리스트: ${escapeHtml(d.checklist.join(", "))}`);
+      if (d.prepIncomplete && d.prepIncomplete.length) lists.push(`<span class="miss">미완료: ${escapeHtml(d.prepIncomplete.join(", "))}</span>`);
+      if (d.assemblyMissing && d.assemblyMissing.length) lists.push(`<span class="miss">누락: ${escapeHtml(d.assemblyMissing.join(", "))}</span>`);
+      if (lists.length) html += `<div class="card-list">${lists.join(" · ")}</div>`;
+      return html;
+    }
+    if (key === "manual" && res.generation) {
+      const g = res.generation;
+      return `<div class="card-detail">` + kv("생성 모델", g.model || "-") + kv("엔진", g.engine || "-") +
+        (g.chunks != null ? kv("근거 청크", g.chunks + "개") : "") + `</div>`;
+    }
+    if (key === "action" && res.actions && res.actions.length) {
+      return `<div class="card-detail">${res.actions.map((a) => kv("액션", a.type)).join("")}</div>`;
+    }
+    return "";
+  }
+
+  /* ── ② 구조화 블록 렌더 (list / kv / table / steps) ─────── */
+  function statusCls(s) {
+    if (s === "완료") return "st-done";
+    if (s === "미완료") return "st-todo";
+    if (s === "확인 필요" || s === "진행 중") return "st-check";
+    return "st-pending"; // 진행 전 등
+  }
+  function renderBlocks(blocks) {
+    return `<div class="blocks">` + blocks.map(renderBlock).join("") + `</div>`;
+  }
+  function renderBlock(b) {
+    const intro = b.intro ? `<div class="b-intro">${escapeHtml(b.intro)}</div>` : "";
+    const title = b.title ? `<div class="b-title">${escapeHtml(b.title)}</div>` : "";
+    if (b.kind === "kv") {
+      const rows = (b.rows || []).map((r) =>
+        `<div class="b-kv-row${r.warn ? " warn" : ""}"><span class="b-k">${escapeHtml(r.k)}</span><span class="b-v">${escapeHtml(String(r.v))}</span></div>`).join("");
+      return `<div class="b-block">${intro}${title}<div class="b-kv">${rows}</div></div>`;
+    }
+    if (b.kind === "list") {
+      const tag = b.ordered ? "ol" : "ul";
+      const items = (b.items || []).map((it) => {
+        const st = it.status ? ` <span class="b-status ${statusCls(it.status)}">${escapeHtml(it.status)}</span>` : "";
+        const subs = (it.subs && it.subs.length) ? `<ul class="b-subs">${it.subs.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>` : "";
+        return `<li><span class="b-main">${escapeHtml(it.main)}</span>${st}${subs}</li>`;
+      }).join("");
+      return `<div class="b-block">${intro}${title}<${tag} class="b-list">${items}</${tag}></div>`;
+    }
+    if (b.kind === "table") {
+      const head = `<tr>${(b.head || []).map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+      const rows = (b.rows || []).map((r) =>
+        `<tr>${r.map((c, i) => i === b.statusCol
+          ? `<td><span class="b-status ${statusCls(c)}">${escapeHtml(c)}</span></td>`
+          : `<td>${escapeHtml(c)}</td>`).join("")}</tr>`).join("");
+      return `<div class="b-block">${intro}${title}<table class="b-table">${head}${rows}</table></div>`;
+    }
+    if (b.kind === "steps") {
+      const items = (b.items || []).map((s, i) =>
+        `<div class="b-step ${statusCls(s.status)}"><span class="b-step-n">${i + 1}</span><span class="b-step-name">${escapeHtml(s.name)}</span><span class="b-status ${statusCls(s.status)}">${escapeHtml(s.status)}</span></div>`).join("");
+      const prog = b.progress ? `<div class="b-progress">${escapeHtml(b.progress)}</div>` : "";
+      return `<div class="b-block">${intro}${title}<div class="b-steps">${items}</div>${prog}</div>`;
+    }
+    return "";
+  }
+
+  /* ── ⑤ 근거 칩 (소스 타입별: CMMS/WO/공간/매뉴얼) ───────── */
+  const SRC_LABEL = { maintenance: "CMMS", cycle: "CMMS", spatial: "공간데이터", workflow: "WO", manual: "매뉴얼" };
+  function sourceBlock(res) {
+    let list = res.sources || [];
+    // 매뉴얼 근거는 아래 접이식 발췌(excerptBlock)로 1회만 표기 → 동일 섹션 칩은 제거(중복 방지)
+    const ex = res.manualExcerpt;
+    if (ex) list = list.filter((s) => !(s.type === "manual" && (s.detail || "") === (ex.sectionPath || "")));
+    if (!list.length) return "";
+    const chips = list.map((s) => {
+      if (s.type) {  // 신규 형식 {type,label,detail}
+        if (s.type === "manual") {  // 매뉴얼: 문서명(label) + 섹션(detail) 모두 표기
+          const det = (s.label || "") + (s.detail ? " · " + s.detail : "");
+          return `<span class="src-chip src-manual">📄 ${escapeHtml(det)}</span>`;
+        }
+        const tag = SRC_LABEL[s.type] || s.type;
+        const det = s.label || "";
+        return `<span class="src-chip src-${s.type}">${escapeHtml(tag)}${det ? " · " + escapeHtml(det) : ""}</span>`;
+      }
+      return `<span class="src-chip">${escapeHtml(s.documentName + (s.section ? " · " + s.section : ""))}</span>`;  // 구 형식
+    }).join("");
+    return `<div class="src"><i>근거</i> ${chips}</div>`;
+  }
+
+  /* ── ⑤ 매뉴얼 발췌 (접이식 — RAG 근거 실재 증명) ────────── */
+  function excerptBlock(res) {
+    const e = res.manualExcerpt;
+    if (!e || !e.text) return "";
+    const cite = (e.doc ? e.doc + (e.sectionPath ? " · " + e.sectionPath : "") : (e.sectionPath || ""));
+    return `<details class="excerpt"><summary>📄 근거 매뉴얼 발췌 · ${escapeHtml(cite)}</summary>` +
+      `<pre>${escapeHtml(e.text)}</pre></details>`;
   }
 
   function addUserMsg(text) {
@@ -250,4 +398,91 @@
     inputEl.value = "TG-BRG-002 위치로 이동해줘";
     onSend({ simulateError: true });
   });
+
+  /* ── AI 어시스턴트 패널 너비 조절 (드래그 스플리터) ───── */
+  (function initResizer() {
+    const ws = document.querySelector(".workspace");
+    const vs = document.getElementById("vsplit");
+    if (!ws || !vs) return;
+    const MIN = 320, MAX_PAD = 360, DEFAULT = 440;
+    const clamp = (w) => Math.max(MIN, Math.min(ws.getBoundingClientRect().width - MAX_PAD, w));
+    const apply = (w) => ws.style.setProperty("--chat-w", clamp(w) + "px");
+    const saved = parseInt(localStorage.getItem("i3d.chatW") || "", 10);
+    if (saved) apply(saved);
+
+    let dragging = false;
+    vs.addEventListener("mousedown", (e) => {
+      dragging = true; vs.classList.add("drag"); document.body.style.userSelect = "none"; e.preventDefault();
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const w = ws.getBoundingClientRect().right - e.clientX;  // 우측 패널 폭 = 워크스페이스 우단 - 마우스 X
+      apply(w);
+    });
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false; vs.classList.remove("drag"); document.body.style.userSelect = "";
+      const cur = getComputedStyle(ws).getPropertyValue("--chat-w").trim();
+      if (cur) localStorage.setItem("i3d.chatW", parseInt(cur, 10));
+    });
+    vs.addEventListener("dblclick", () => { ws.style.setProperty("--chat-w", DEFAULT + "px"); localStorage.removeItem("i3d.chatW"); });
+  })();
+
+  /* ── 하단 디버그 패널 높이 조절 (가로 드래그 스플리터) ───── */
+  (function initHorizResizer() {
+    const hs = document.getElementById("hsplit");
+    if (!hs) return;
+    const MIN = 100, MAX = 600, DEFAULT = 240;
+    const apply = (h) => document.documentElement.style.setProperty("--debug-h", Math.max(MIN, Math.min(MAX, h)) + "px");
+    const saved = parseInt(localStorage.getItem("i3d.debugH") || "", 10);
+    if (saved) apply(saved);
+
+    let dragging = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    hs.addEventListener("mousedown", (e) => {
+      dragging = true;
+      hs.classList.add("drag");
+      document.body.style.userSelect = "none";
+      startY = e.clientY;
+      const currentStyle = getComputedStyle(document.documentElement).getPropertyValue("--debug-h").trim();
+      startHeight = currentStyle ? parseInt(currentStyle, 10) : DEFAULT;
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const deltaY = e.clientY - startY;
+      apply(startHeight - deltaY);
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      hs.classList.remove("drag");
+      document.body.style.userSelect = "";
+      const cur = getComputedStyle(document.documentElement).getPropertyValue("--debug-h").trim();
+      if (cur) localStorage.setItem("i3d.debugH", parseInt(cur, 10));
+    });
+
+    hs.addEventListener("dblclick", () => {
+      apply(DEFAULT);
+      localStorage.removeItem("i3d.debugH");
+    });
+  })();
+
+  /* ── 현재 날짜·시간·요일 표시 ──────────────────────────── */
+  const clockEl = document.getElementById("chatClock");
+  function updateClock() {
+    if (!clockEl) return;
+    const now = new Date();
+    const days = ["일", "월", "화", "수", "목", "금", "토"];
+    const p = (n) => String(n).padStart(2, "0");
+    const date = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+    const time = `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+    clockEl.textContent = `${date} (${days[now.getDay()]}) ${time}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 })();

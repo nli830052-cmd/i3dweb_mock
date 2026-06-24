@@ -21,16 +21,7 @@
   // (실제 SDK에선 Viewer가 보유. 여기선 mock 데이터)
   // dist: 현재 위치 기준 mock 거리(m), inspect: 오늘 점검 대상 여부, height: 작업 위치 높이(m)
   const SCENE = [
-    { tag: "TG-BRG-002", type: "BEARING", name: "터빈 베어링",     system: "터빈 계통",       dist: 9.0,  inspect: false, height: 1.2 },
-    { tag: "TG-MOT-310", type: "MOTOR",   name: "구동 모터",       system: "터빈 계통",       dist: 11.0, inspect: false, height: 1.0 },
-    { tag: "TGLOP-001",  type: "PUMP",    name: "터빈 윤활유 펌프", system: "터빈 윤활유 계통", dist: 6.0,  inspect: false, height: 1.1 },
-    { tag: "TG-PMP-101", type: "PUMP",    name: "터빈 윤활유 펌프", system: "터빈 윤활유 계통", dist: 7.2,  inspect: true,  height: 1.1 },
-    { tag: "TG-PMP-102", type: "PUMP",    name: "터빈 윤활유 펌프", system: "터빈 윤활유 계통", dist: 14.0, inspect: false, height: 1.1 },
-    { tag: "TG-VLV-205", type: "VALVE",   name: "제어 밸브",       system: "터빈 윤활유 계통", dist: 8.5,  inspect: false, height: 1.6 },
-    { tag: "TG-TNK-007", type: "TANK",    name: "윤활유 탱크",     system: "터빈 윤활유 계통", dist: 16.0, inspect: false, height: 0.5 },
-    { tag: "GV-101A",    type: "VALVE",   name: "글로브 밸브",     system: "냉각수 계통",     dist: 4.8,  inspect: true,  height: 2.3 },
-    { tag: "GV-102A",    type: "VALVE",   name: "게이트 밸브",     system: "냉각수 계통",     dist: 12.5, inspect: true,  height: 0.9 },
-    { tag: "HX-301",     type: "HEATEX",  name: "열교환기",        system: "냉각수 계통",     dist: 20.1, inspect: true,  height: 3.0 }
+    { tag: "GV-101A",    type: "VALVE",   name: "글로브 밸브",     system: "냉각수 계통",     dist: 4.8,  inspect: true,  height: 2.3 }
   ];
 
   const TYPE_KO = { PUMP: "펌프", VALVE: "밸브", MOTOR: "모터", BEARING: "베어링", HEATEX: "열교환기", TANK: "탱크" };
@@ -256,8 +247,48 @@
       scene: document.getElementById("scene"),
       dir: document.getElementById("viewDir"),
       filter: document.getElementById("viewFilter"),
-      info: document.getElementById("viewerInfo")
+      info: document.getElementById("viewerInfo"),
+      tree: document.getElementById("i3dTree")
     };
+  }
+
+  /* ── 좌측 탐색 트리 빌드 (계통별 그룹) ─────────────────── */
+  function buildTree() {
+    const e = els();
+    if (!e.tree) return;
+    const systems = [];
+    SCENE.forEach((o) => {
+      let g = systems.find((s) => s.name === o.system);
+      if (!g) { g = { name: o.system, items: [] }; systems.push(g); }
+      g.items.push(o);
+    });
+    e.tree.innerHTML = systems.map((s) =>
+      `<div class="tree-sys">` +
+        s.items.map((o) =>
+          `<div class="tree-row tree-leaf" data-tag="${o.tag}" title="${o.name}">` +
+            `${o.tag}</div>`
+        ).join("") +
+      `</div>`
+    ).join("");
+    e.tree.querySelectorAll(".tree-leaf").forEach((leaf) => {
+      leaf.addEventListener("click", () => jumpToTag(leaf.dataset.tag));
+    });
+  }
+
+  /* ── 속성 정보 패널 갱신 ──────────────────────────────── */
+  function renderProp() {
+    const o = state.selected && byTag(state.selected);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    if (!o) {
+      ["propTag","propName","propType","propSystem","propVis","propDist"].forEach((id) => set(id, "—"));
+      return;
+    }
+    set("propTag", o.tag);
+    set("propName", o.name);
+    set("propType", (TYPE_KO[o.type] || o.type) + " (" + o.type + ")");
+    set("propSystem", o.system);
+    set("propVis", state.visible.has(o.tag) ? "표시" : "숨김");
+    set("propDist", o.dist + " m");
   }
   function renderInfo(html) { state.info = html || ""; }
   function renderTag(tag, statusText, isError) {
@@ -280,9 +311,21 @@
         const sel = o.tag === state.selected;
         const hot = highlightSet && highlightSet.has(o.tag);
         const cls = ["obj", vis ? "" : "hidden", sel ? "sel" : "", hot ? "hot" : ""].filter(Boolean).join(" ");
-        return `<div class="${cls}" title="${o.name} · ${o.system}"><span class="oi">${TYPE_ICON[o.type] || "📦"}</span>${o.tag}</div>`;
+        return `<div class="${cls}" data-tag="${o.tag}" title="${o.name} · ${o.system} · 클릭 시 태그를 채팅 입력칸에 채움">${o.tag}</div>`;
       }).join("");
+      // 설비 클릭 → 해당 태그를 채팅 입력칸에 채움 (전송은 사용자가)
+      e.scene.querySelectorAll(".obj").forEach((box) => {
+        box.addEventListener("click", () => fillChatInput(box.dataset.tag));
+      });
     }
+    if (e.tree) {
+      e.tree.querySelectorAll(".tree-leaf").forEach((leaf) => {
+        const t = leaf.dataset.tag;
+        leaf.classList.toggle("sel", t === state.selected);
+        leaf.classList.toggle("hidden", !state.visible.has(t));
+      });
+    }
+    renderProp();
     if (anim && e.box) {
       e.box.classList.remove("moved", "error");
       void e.box.offsetWidth;
@@ -291,9 +334,38 @@
   }
   function log() { console.log.apply(console, ["[MOCK Viewer]"].concat([].slice.call(arguments))); }
 
-  // 초기 씬 1회 렌더 (DOM 준비 후)
-  if (document.readyState !== "loading") render();
-  else document.addEventListener("DOMContentLoaded", () => render());
+  /* ── 설비 클릭 → 채팅 입력칸에 태그 채우기 ────────────── */
+  function fillChatInput(tag) {
+    if (!tag) return;
+    const input = document.getElementById("userInput");
+    if (!input) return;
+    input.value = tag;
+    input.focus();
+    // 커서를 끝으로
+    const len = input.value.length;
+    try { input.setSelectionRange(len, len); } catch (_) {}
+    log("fillChatInput", tag);
+  }
+
+  // Tag 검색 패널 바인딩 (좌측 i3DWEB 사이드)
+  function bindTagSearch() {
+    const input = document.getElementById("tagSearch");
+    const btn = document.getElementById("tagSearchBtn");
+    if (!input || !btn) return;
+    const run = () => {
+      const v = (input.value || "").trim().toUpperCase();
+      if (!v) return;
+      if (KNOWN_TAGS.has(v)) jumpToTag(v);
+      else searchEquipment(input.value.trim());
+    };
+    btn.addEventListener("click", run);
+    input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") run(); });
+  }
+
+  // 초기 트리 빌드 + 씬 1회 렌더 (DOM 준비 후)
+  function init() { buildTree(); bindTagSearch(); render(); }
+  if (document.readyState !== "loading") init();
+  else document.addEventListener("DOMContentLoaded", init);
 
   window.ViewerSDK = {
     jumpToTag, searchEquipment, rotateView, hide, show, isolateSystem, filterByType,

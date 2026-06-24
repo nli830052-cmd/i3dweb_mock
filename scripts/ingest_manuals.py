@@ -153,7 +153,7 @@ def build_chunks(items, valve_type, doc_id, valve_label):
     return chunks
 
 def process_md(path):
-    """보충 표준 .md (권장 주기/교체 기준 등) → ### 섹션 단위 청크."""
+    """보충 표준 .md (권장 주기/교체 기준 등) → 헤딩(#~###) 섹션 단위 청크."""
     raw = open(path, encoding="utf-8").read()
     if not raw.strip():
         return [], 0   # 빈 파일
@@ -163,21 +163,23 @@ def process_md(path):
     vlabel = ("Gate" if vt == "gate" else "Globe" if vt == "globe" else "?") + " Valve 보충기준"
     doc = os.path.splitext(fname)[0]
 
-    # H2 제목(있으면) + ### 섹션 분리
+    # H2 제목(있으면) + 헤딩(#/##/###) 섹션 분리
     h2 = ""
     mh2 = re.search(r'(?m)^##\s+(.+)$', text)
     if mh2:
         h2 = mh2.group(1).strip()
-    secs = list(re.finditer(r'(?m)^###\s+(.+)$', text))
+    secs = list(re.finditer(r'(?m)^#{1,3}\s+(.+)$', text))
     chunks = []
     for i, m in enumerate(secs):
         title = m.group(1).strip()
         start = m.end()
         end = secs[i + 1].start() if i + 1 < len(secs) else len(text)
         body = text[start:end].strip().strip("-").strip()
-        msec = re.match(r'^(\d+)\.', title)
+        if not body:
+            continue   # 본문 없는 상위 컨테이너 헤더(예: '# 10.0 …')는 스킵
+        msec = re.match(r'^(\d+(?:\.\d+)*)', title)   # '10.2' 같은 점 포함 번호 보존(중복 id 방지)
         sec_no = msec.group(1) if msec else str(i + 1)
-        path_str = ("%s > %s > %s" % (h2, title, "")).strip(" >") if h2 else title
+        path_str = title   # 인용 경로는 섹션 제목만(예: '19.2 고소작업 판단 기준')
         crumb = "[%s > %s]" % (vlabel, title)
         full = title + "\n" + body
         for j, ptxt in enumerate(split_text(full, MAX_CHARS, OVERLAP)):

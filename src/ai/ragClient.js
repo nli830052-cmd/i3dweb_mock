@@ -37,5 +37,15 @@
     return await res.json();
   }
 
-  window.RagClient = { search, answer, plan, BASE };
+  // 통합 챗 (LLM+RAG+DB) — 5단 구조 답변
+  async function chat(message, currentTag, sessionId) {
+    const res = await fetch(BASE + "/api/ai/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message, currentTag: currentTag || undefined, sessionId: sessionId || undefined })
+    });
+    if (!res.ok) throw { status: res.status, body: await res.json().catch(() => ({})) };
+    return await res.json();
+  }
+
+  window.RagClient = { search, answer, plan, chat, BASE };
 })();
