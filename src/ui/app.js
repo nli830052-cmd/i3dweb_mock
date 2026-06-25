@@ -61,33 +61,45 @@
 
     // [1b] (규칙 미매칭 시) LLM이 action JSON 직접 생성 — AI팀 영역
     if (res.plan) {
-      pushFlow({ owner: "ai", dir: "req", transport: "llm",
+      pushFlow({
+        owner: "ai", dir: "req", transport: "llm",
         endpoint: `${res.plan.model}.plan(message)`, meta: "action JSON 생성(규칙 미매칭)",
-        payload: { model: res.plan.model, message: text } });
-      pushFlow({ owner: "ai", dir: "res", transport: "llm",
+        payload: { model: res.plan.model, message: text }
+      });
+      pushFlow({
+        owner: "ai", dir: "res", transport: "llm",
         endpoint: "action JSON", meta: "로컬 추론",
-        payload: { actions: res.plan.actions } });
+        payload: { actions: res.plan.actions }
+      });
     }
 
     // [2a] (grounded 응답 시) AI 백엔드 내부 RAG/CMMS 조회 — AI팀 영역
     if (res.retrieval) {
       const downer = res.retrieval.owner || "ai"; // CMMS=AI팀 / Walkinside 공간=솔루션팀
-      pushFlow({ owner: downer, dir: "req", transport: "data",
+      pushFlow({
+        owner: downer, dir: "req", transport: "data",
         endpoint: `query(${res.retrieval.query})`, meta: res.retrieval.source,
-        payload: { source: res.retrieval.source, query: res.retrieval.query } });
-      pushFlow({ owner: downer, dir: "res", transport: "data",
+        payload: { source: res.retrieval.source, query: res.retrieval.query }
+      });
+      pushFlow({
+        owner: downer, dir: "res", transport: "data",
         endpoint: `${res.retrieval.hitCount} record(s) · grounded=${!!res.grounded}`, meta: "~30ms",
-        payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, data: res.retrieval.data || null, sources: res.sources || [] } });
+        payload: { hitCount: res.retrieval.hitCount, grounded: !!res.grounded, data: res.retrieval.data || null, sources: res.sources || [] }
+      });
     }
 
     // [2b] (RAG 답변 생성 시) 로컬 LLM 종합 — AI팀 영역
     if (res.generation) {
-      pushFlow({ owner: "ai", dir: "req", transport: "llm",
+      pushFlow({
+        owner: "ai", dir: "req", transport: "llm",
         endpoint: `${res.generation.model}.generate(context, query)`, meta: res.generation.engine,
-        payload: { model: res.generation.model, context_chunks: res.generation.chunks, instruction: "검색된 매뉴얼 청크만 근거로 한국어 답변 종합 (환각 방지)" } });
-      pushFlow({ owner: "ai", dir: "res", transport: "llm",
+        payload: { model: res.generation.model, context_chunks: res.generation.chunks, instruction: "검색된 매뉴얼 청크만 근거로 한국어 답변 종합 (환각 방지)" }
+      });
+      pushFlow({
+        owner: "ai", dir: "res", transport: "llm",
         endpoint: "generated answer", meta: "로컬 추론",
-        payload: { model: res.generation.model, answer: res.answer } });
+        payload: { model: res.generation.model, answer: res.answer }
+      });
     }
 
     // [2] AI 백엔드 → Frontend (HTTP 응답) — AI팀 영역
@@ -280,6 +292,14 @@
       const prog = b.progress ? `<div class="b-progress">${escapeHtml(b.progress)}</div>` : "";
       return `<div class="b-block">${intro}${title}<div class="b-steps">${items}</div>${prog}</div>`;
     }
+    if (b.kind === "image") {
+      return `<div class="b-block">${intro}${title}
+        <div class="b-image">
+          <img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.alt || "")}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block;" />
+          ${b.caption ? `<div class="b-caption" style="font-size: 12px; color: gray; margin-top: 4px; text-align: center;">${escapeHtml(b.caption)}</div>` : ""}
+        </div>
+      </div>`;
+    }
     return "";
   }
 
@@ -372,13 +392,13 @@
     const ownerLabel = owner === "ai" ? "AI팀" : "솔루션팀";
     wrap.innerHTML =
       `<div class="flow-head">` +
-        `<span class="seq">${flowSeq}</span>` +
-        `<span class="owner ${owner}">${ownerLabel}</span>` +
-        `<span class="dir ${dirClass}">${dirLabel}</span>` +
-        `<span class="transport ${transport}">${transportLabel}</span>` +
-        `<span class="endpoint">${escapeHtml(endpoint)}</span>` +
-        `<span class="meta">${escapeHtml(meta || "")}</span>` +
-        `<span class="toggle">▾</span>` +
+      `<span class="seq">${flowSeq}</span>` +
+      `<span class="owner ${owner}">${ownerLabel}</span>` +
+      `<span class="dir ${dirClass}">${dirLabel}</span>` +
+      `<span class="transport ${transport}">${transportLabel}</span>` +
+      `<span class="endpoint">${escapeHtml(endpoint)}</span>` +
+      `<span class="meta">${escapeHtml(meta || "")}</span>` +
+      `<span class="toggle">▾</span>` +
       `</div>` +
       `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
     wrap.querySelector(".flow-head").addEventListener("click", () => {

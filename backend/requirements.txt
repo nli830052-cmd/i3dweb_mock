@@ -1,0 +1,25 @@
+# ============================================================
+#  backend/requirements.txt
+#  RAG 서버(backend/rag_server.py) + 인덱스 생성 스크립트(scripts/*) 의존성.
+#  코드의 import 문에서 역으로 추출함. (Python 3.10 기준 검증)
+#
+#  설치:  pip install -r backend/requirements.txt
+#  ※ sentence-transformers 설치 시 torch가 함께 설치됩니다(수백 MB~).
+#    GPU 사용 시 CUDA 빌드 torch를 별도로 먼저 설치하세요.
+# ============================================================
+
+# ── 서버 런타임 (rag_server.py, search_manuals.py, embed_chunks.py) ──
+numpy>=1.24                  # 벡터 인덱스 적재 + 코사인 검색 (data/manual_index.npy)
+sentence-transformers>=2.2   # bge-m3 임베딩 모델(BAAI/bge-m3) 로드·인코딩
+
+# ── 인덱스 생성 시에만 필요 (scripts/ingest_manuals.py) ──
+# PDF 절차서 파싱(fitz). 서버 구동만 할 거면 생략 가능하나, data/를 새로 만들려면 필요.
+PyMuPDF>=1.23
+
+# ── 참고: 코드에서 stdlib만 쓰는 부분(설치 불필요) ──
+#   http.server / urllib / json / sqlite3 / threading / re / calendar / datetime
+#
+# ── 참고: pip로 설치하지 않는 외부 구성요소 ──
+#   1) Ollama (https://ollama.com) — 로컬 LLM 런타임. http://localhost:11434
+#   2) LLM 모델:  ollama pull qwen3.5:9b   (rag_server.py LLM_MODEL 값과 동일해야 함)
+#   3) 임베딩 모델 BAAI/bge-m3 — 최초 실행 시 sentence-transformers가 자동 다운로드(~2GB)

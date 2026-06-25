@@ -418,11 +418,14 @@ def chat_template(category, sub, tag, rec):
         last = rec.get("lastMaintenance"); cyc = rec.get("cycleMonths")
         if sub == "overdue":
             od, due = _overdue(last, cyc)
+            nd = rec.get("nextDue")
+            # 다음 예정일이 주기 만료일과 다르면(예: 누설 후속 점검으로 별도 설정) 혼동 방지 문구 추가
+            note = (" 참고로 '다음 점검 예정일' %s은 누설 후속 점검(Open Point)일로, 주기 초과 판정 기준이 아닙니다." % nd) if (nd and nd != due) else ""
             if od is not None and od > 0:
                 return ("정비 주기 초과 (약 %d일)" % od,
-                        "마지막 분해정비 %s + 주기 %d개월 → 만료 %s. 오늘 기준 약 %d일 초과된 점검 대상입니다." % (last, cyc, due, od),
+                        "마지막 분해정비 %s + 주기 %d개월 → 만료 %s. 오늘 기준 약 %d일 초과된 점검 대상입니다.%s" % (last, cyc, due, od, note),
                         "최근 누설 이력까지 고려해 우선순위를 높게 두고 분해정비로 주기 초과와 Open Point를 함께 해소하세요.")
-            return ("정비 주기 도래 전", "마지막 분해정비 %s + 주기 %d개월 → 만료 %s. 아직 주기 도래 전입니다." % (last, cyc, due), "")
+            return ("정비 주기 도래 전", "마지막 분해정비 %s + 주기 %d개월 → 만료 %s. 아직 주기 도래 전입니다.%s" % (last, cyc, due, note), "")
         if sub == "nextdue":
             return ("다음 정비 예정 %s" % rec.get("nextDue", ""),
                     "최근 누설 이력으로 우선 점검 대상으로 분류되어, 일반 주기보다 앞당겨 분해정비가 진행/예정 중입니다. 연계 조치 예정일은 %s 입니다." % rec.get("nextDue", ""), "")
@@ -470,6 +473,53 @@ def chat_template(category, sub, tag, rec):
         return ("현재 단계: %s" % cs, "현재 작업은 '%s' 상태입니다. 다음 단계는 %s입니다." % (cs, ns),
                 "2단계 진행 전 전원 차단·Red Tag·Match Mark·작업발판을 다시 확인하세요.")
     return ("", "", "")
+
+def chat_facts_for_llm(category, sub, rec, data):
+    """LLM에 넘길 사실. cycle 주기 초과 판정은 규칙이 계산한 확정값을 명시 주입해,
+    LLM이 직접 날짜 산술을 하거나 nextDue(후속 점검 예정일)에 휘둘려 판정을 뒤집는 것을 막는다."""
+    if category == "cycle" and rec:
+        if sub == "overdue":
+            od, due = _overdue(rec.get("lastMaintenance"), rec.get("cycleMonths"))
+            if od is not None:
+                enriched = dict(data or {})
+                enriched["만료일_계산값"] = due
+                enriched["정비주기판정_확정"] = "초과" if od > 0 else "도래 전"
+                enriched["초과일수_확정"] = od if od > 0 else 0
+                enriched["판정주의"] = ("위 만료일·판정·초과일수는 시스템이 계산한 확정값이다. 절대 바꾸지 말고 "
+                                    "그대로 반영하라. nextDue는 후속 점검 예정일로 주기 초과 판정과 무관하니 판정 근거로 쓰지 마라.")
+                return enriched
+        elif sub == "nextdue":
+            enriched = dict(data or {})
+            enriched["판정주의"] = ("nextDue(다음 정비 예정일)는 주기 만료일이 아니라 누설 부위 등을 재확인하기 위한 '사후 점검일(Open Point)'이다. "
+                                "미래의 날짜라고 해서 설비가 정상 운영된다거나 긴급 정비가 필요 없다고 절대로 임의 판단(환각)하지 마라. "
+                                "단순히 이 날짜에 누설 후속 점검이 예정되어 있다는 사실만 전달하라.")
+            return enriched
+    return data
+
+def enforce_cycle_verdict(sub, rec, headline, answer, recommendation, det):
+    """cycle/overdue 판정은 규칙값이 진실. 핵심 판정 헤드라인은 규칙값으로 고정하고,
+    LLM 답변이 판정과 모순되면 결정적 템플릿 문장으로 되돌린다(틀린 정보 차단)."""
+    if sub != "overdue" or not rec:
+        return headline, answer, recommendation
+    od, due = _overdue(rec.get("lastMaintenance"), rec.get("cycleMonths"))
+    if od is None:
+        return headline, answer, recommendation
+    headline = det[0]                                  # 핵심 판정 한 줄은 항상 규칙값
+    overdue = od > 0
+    bad = (["초과되지 않", "초과되지않", "초과 전", "도래 전", "도래전", "아직", "남아", "이내"]
+           if overdue else ["초과된", "초과 상태", "초과되었", "지났", "초과 약"])
+    if any(p in (answer or "") for p in bad):          # 판정 모순 → 결정적 문장으로 대체
+        answer, recommendation = det[1], det[2]
+    return headline, answer, recommendation
+
+def _cycle_glossary():
+    """정기 점검 vs 누설 후속 점검 — 두 개념을 혼동하지 않도록 답변 하단에 붙이는 용어 정리."""
+    return {"kind": "kv", "title": "용어 정리", "rows": [
+        {"k": "정기 점검 (정비 주기)",
+         "v": "고장 여부와 무관하게 정해진 주기(예: 12개월)마다 도는 예방 정비. '주기 초과' 판정은 이 만료일 기준입니다."},
+        {"k": "누설 후속 점검 (Open Point)",
+         "v": "실제 누설이 났던 부위가 조치 후 잘 막혔는지 다시 확인하는 사후 점검. 주기와 무관한 별도 예정일입니다."},
+    ]}
 
 def build_blocks(category, sub, tag, rec):
     """DB 사실 → 구조화 블록(list/kv/table/steps). 시연 스크립트의 가독성 형식."""
@@ -533,6 +583,12 @@ def build_blocks(category, sub, tag, rec):
             lk = rec.get("leaks") or []
             b.append({"kind": "list", "ordered": True, "intro": "누설 이력:", "items": [
                 {"main": "%s · %s" % (l.get("date"), l.get("wo", "")), "subs": ["부위: %s" % l.get("part", ""), "조치: %s" % l.get("action", "")]} for l in lk]})
+            b.append({
+                "kind": "image",
+                "url": "./assets/images/leak_gv101a.png",
+                "alt": "GV-101A 그랜드패킹 누설 현장",
+                "caption": "발생 당시 고압 증기 누설 사진"
+            })
         else:  # history
             items = []
             for h in (rec.get("history") or []):
@@ -556,13 +612,19 @@ def build_blocks(category, sub, tag, rec):
                 {"k": "기준일(오늘)", "v": date.today().isoformat()},
             ]
             rows.append({"k": "초과 기간", "v": "약 %d일 초과" % od, "warn": True} if (od and od > 0) else {"k": "상태", "v": "주기 도래 전"})
+            nd = rec.get("nextDue")
+            if nd and nd != due:   # 다음 예정일은 주기 만료일과 별개임을 명시 구분
+                rows.append({"k": "다음 점검 예정일", "v": "%s (누설 후속 점검 · 주기 판정과 별개)" % nd})
             b.append({"kind": "kv", "intro": "정비 주기 계산 결과는 다음과 같습니다.", "rows": rows})
+            if nd and nd != due:   # 두 개념이 함께 나오므로 용어 정리 첨부
+                b.append(_cycle_glossary())
         elif sub == "nextdue":
             op = (rec.get("openPoints") or [{}])[0]
             b.append({"kind": "kv", "rows": [
                 {"k": "다음 정비 예정일", "v": rec.get("nextDue")},
                 {"k": "분류", "v": "우선 점검 대상 (최근 누설 이력)", "warn": True},
                 {"k": "연계 작업오더", "v": op.get("linkedWo", "-")}]})
+            b.append(_cycle_glossary())
         elif sub == "parts":
             b.append({"kind": "list", "ordered": True, "intro": "분해 시 우선 점검 순서:", "items": [{"main": p} for p in (rec.get("priorityParts") or [])]})
             b.append({"kind": "kv", "rows": [{"k": "최우선", "v": "그랜드패킹부 (최근 누설 부위)", "warn": True}]})
@@ -712,10 +774,11 @@ def make_chat(message, tag, history=None):
                               "owner": "sol" if category == "spatial" else "ai"}}
 
     headline, answer, recommendation = chat_template(category, sub, tag, rec)
+    det = (headline, answer, recommendation)        # 규칙 기반 결정값 보관(무결성 가드용)
     blocks = build_blocks(category, sub, tag, rec)
     used_llm = False
     try:
-        facts_json = json.dumps(data, ensure_ascii=False)
+        facts_json = json.dumps(chat_facts_for_llm(category, sub, rec, data), ensure_ascii=False)
         obj = _extract_json(ollama_generate(build_chat_synthesis_prompt(message, facts_json, hits), num_predict=420))
         if isinstance(obj, dict) and obj.get("answer"):
             headline = obj.get("headline") or headline
@@ -724,6 +787,11 @@ def make_chat(message, tag, history=None):
             used_llm = True
     except Exception:
         pass  # Ollama 미가동 → 템플릿 폴백 유지
+
+    # [무결성 가드] 정비 주기 초과 판정은 규칙값이 진실 — LLM이 뒤집지 못하게 강제
+    if category == "cycle":
+        headline, answer, recommendation = enforce_cycle_verdict(
+            sub, rec, headline, answer, recommendation, det)
 
     owner = "sol" if category == "spatial" else "ai"
     src_label = {"maintenance": "CMMS 정비이력", "cycle": "CMMS 정비주기",

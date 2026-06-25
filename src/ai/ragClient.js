@@ -11,7 +11,8 @@
  * ========================================================== */
 (function () {
   "use strict";
-  const BASE = "http://localhost:8090";
+  // 담당자님(AI팀) 데스크톱 로컬 서버 주소
+  const BASE = window.AI_SERVER_BASE_URL || "http://192.168.0.210:8090";
 
   async function _post(path, query, valveType, topK) {
     const res = await fetch(BASE + path, {
