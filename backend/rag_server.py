@@ -1000,8 +1000,8 @@ def main():
     print("RAG 인덱스/모델 로딩...")
     vecs, meta = _ensure_loaded()
     print("준비 완료: %d청크, 모델=%s" % (len(meta), sm.MODEL_NAME))
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print("RAG API: http://localhost:%d  (POST /api/rag/search, GET /health)" % PORT)
+    srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    print("RAG API: http://0.0.0.0:%d  (POST /api/rag/search, GET /health)" % PORT)
     srv.serve_forever()
 
 if __name__ == "__main__":
