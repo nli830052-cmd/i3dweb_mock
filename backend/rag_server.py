@@ -154,7 +154,8 @@ def _extract_json(text):
         return None
 
 def make_plan(message, current_tag, history=None):
-    prompt = PLAN_PROMPT % (current_tag or "없음")
+    current_tag = current_tag or "GV-101A"
+    prompt = PLAN_PROMPT % current_tag
     if history:
         prompt += ("[이전 대화] (오래된→최근, '그거/거기/다음' 같은 후속·대명사 해석에 활용)\n"
                    + _format_history(history) + "\n\n")
