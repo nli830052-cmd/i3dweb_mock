@@ -2,7 +2,7 @@
 
 `backend/rag_server.py` — 로컬 LLM + 매뉴얼 벡터검색(RAG) + 정형 DB 조회를 합쳐
 챗봇 응답을 생성하는 파이썬 API 서버입니다. 프런트(`src/ai/ragClient.js`)가
-`http://localhost:8090` 으로 호출합니다.
+기본적으로 AI팀 데스크톱 서버 주소(`http://192.168.0.210:8090`)로 호출하도록 설정되어 있습니다.
 
 > 용어: **RAG**(Retrieval-Augmented Generation) = 문서에서 관련 내용을 *검색(Retrieval)* 해
 > 그 근거만으로 LLM이 *답변 생성(Generation)* 하는 방식. 환각(없는 사실 지어내기)을 줄이는 구조입니다.
@@ -83,10 +83,10 @@ RAG 인덱스/모델 로딩...
 RAG API: http://localhost:8090  (POST /api/rag/search, GET /health)
 ```
 
-헬스 체크:
+헬스 체크 (솔루션팀 PC 등 외부에서 테스트 시 자신의 IP 사용):
 
 ```bash
-curl http://localhost:8090/health
+curl http://192.168.0.210:8090/health
 # → {"ok": true, "chunks": <N>, "model": "BAAI/bge-m3"}
 ```
 
@@ -109,17 +109,17 @@ curl http://localhost:8090/health
 
 ---
 
-## 6. 운영 주소로 바꾸려면
+## 6. 클라이언트 호출 주소 설정
 
-프런트의 호출 주소는 **한 곳에 하드코딩**되어 있습니다:
+프런트엔드의 호출 주소는 다음과 같이 `src/ai/ragClient.js`에 설정되어 있습니다.
+(AI팀 오픈 주소인 `192.168.0.210`이 기본으로 반영되어 있습니다.)
 
 ```js
-// src/ai/ragClient.js:14
-const BASE = "http://localhost:8090";
+// src/ai/ragClient.js
+const BASE = window.AI_SERVER_BASE_URL || "http://192.168.0.210:8090";
 ```
 
-운영 배포 시 이 값을 오픈된 서버 주소로 바꾸면 됩니다.
-(권장: 추후 설정값/환경변수로 분리)
+솔루션팀은 별도의 코드 수정 없이 그대로 `git pull`을 받아 사용하시면 됩니다. 만약 배포 환경 등에서 서버 주소가 변경된다면 `window.AI_SERVER_BASE_URL` 전역 변수를 주입하여 코드를 수정하지 않고 유연하게 변경할 수 있습니다.
 
 ---
 
