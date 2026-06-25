@@ -135,7 +135,8 @@ PLAN_PROMPT = (
     "- 이력/주기/공간/작업단계 질문은 QUERY_*, 절차/방법/기준은 MANUAL_RAG.\n"
     "- 단순 인사/잡담은 actions:[] 로.\n"
     "- 이전 대화가 있으면 '그거/거기/그럼/다음/그 밸브' 같은 표현을 그 맥락으로 해석하고, query/targetValue는 맥락을 반영해 완성형으로 채워라.\n"
-    "- 문장에 태그가 없으면 현재 선택 태그를 targetValue로 사용. 현재 선택 태그: %s\n\n"
+    "- 문장에 태그가 명시되어 있지 않다면 반드시 현재 선택 태그를 targetValue로 사용하라.\n"
+    "- 단, 현재 선택 태그가 '없음'인 경우 절대 임의의 태그(예: 예시의 TG-PMP-101)를 지어내지 말고, 태그 파악이 불가함을 알리는 검색(SEARCH_EQUIPMENT)이나 MANUAL_RAG로 처리하거나 targetValue를 비워둬라. 현재 선택 태그: %s\n\n"
     "예시:\n"
     '"TG-PMP-101 확인할껀데 어디있는지 알려줘" -> {"responseType":"ACTION","message":"TG-PMP-101 위치로 이동합니다.","actions":[{"type":"JUMP_TO","targetType":"TAG","targetValue":"TG-PMP-101"}]}\n'
     '"펌프 찾아줘" -> {"responseType":"ACTION","message":"펌프를 검색합니다.","actions":[{"type":"SEARCH_EQUIPMENT","query":"펌프"}]}\n'
