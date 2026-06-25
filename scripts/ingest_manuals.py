@@ -168,7 +168,7 @@ def process_md(path):
     mh2 = re.search(r'(?m)^##\s+(.+)$', text)
     if mh2:
         h2 = mh2.group(1).strip()
-    secs = list(re.finditer(r'(?m)^#{1,3}\s+(.+)$', text))
+    secs = list(re.finditer(r'(?m)^#{1,4}\s+(.+)$', text))
     chunks = []
     for i, m in enumerate(secs):
         title = m.group(1).strip()
