@@ -19,9 +19,9 @@
 | LLM 런타임 | **Ollama** (https://ollama.com) | `http://localhost:11434` |
 | LLM 모델 | `qwen3.5:9b` | `ollama pull` 필요 · `rag_server.py`의 `LLM_MODEL` 값과 일치해야 함 |
 
-> ⚠️ **git만 받으면 부족합니다.** RAG 인덱스와 DB(`data/` 폴더)는 `.gitignore`로
-> 저장소에 포함되지 않습니다. 매뉴얼 원본(PDF·MD)은 git에 있으므로,
-> 아래 3번 스크립트로 `data/`를 **직접 생성**해야 합니다.
+> 💡 **RAG 인덱스 및 DB 포함 안내:**
+> RAG 인덱스와 DB(`data/` 폴더)는 현재 Git 저장소에 함께 업로드되어 있습니다.
+> 따라서 최초 실행 시 별도로 데이터를 빌드할 필요 없이 바로 서버를 실행할 수 있습니다.
 
 ---
 
@@ -43,7 +43,7 @@ ollama pull qwen3.5:9b
 
 ---
 
-## 3. 데이터 빌드 (`data/` 생성 — 최초 1회 + 매뉴얼 변경 시)
+## 3. 데이터 빌드 (매뉴얼 원본 변경 시에만 실행)
 
 모든 명령은 **프로젝트 루트**(`i3dweb_mock/`)에서 실행합니다. 경로가 상대경로라 루트 기준이어야 합니다.
 
@@ -127,7 +127,7 @@ const BASE = "http://localhost:8090";
 
 | 증상 | 원인 / 조치 |
 |---|---|
-| 서버 시작 시 인덱스 로드 실패 | `data/manual_index.*` 없음 → 3-(B) 재실행 |
+| 서버 시작 시 인덱스 로드 실패 | `data/manual_index.*` 파일 누락 여부 확인 (`git pull` 정상 완료되었는지 확인) |
 | 답변이 `LLM_UNAVAILABLE`(502) | Ollama 미실행 또는 모델 없음 → `ollama pull qwen3.5:9b`, Ollama 기동 확인 |
 | 프런트는 뜨는데 근거형 답변이 mock | 서버 미가동 → 프런트가 자동으로 규칙기반(브라우저)으로 폴백한 상태 |
 | `fitz` import 에러 | `pip install PyMuPDF` (인덱스 생성 시에만 필요) |
