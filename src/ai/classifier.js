@@ -145,10 +145,20 @@
       return buildMaintenanceAnswer(t, text);
     }
 
-    // 7) 이동 (태그 기반)
-    if (tag && has(text, ["이동", "가줘", "가자", "안내", "위치", "찾아", "보여", "데려"])) {
-      return mkAction("JUMP_TO", action({ type: "JUMP_TO", targetType: "TAG", targetValue: tag }),
-        `${tag} 위치를 찾았습니다. 현재 화면을 해당 설비 위치로 이동하고 강조 표시합니다.`);
+    // 7) 이동 (태그 기반 또는 자유 입력 태그)
+    if (has(text, ["이동", "가줘", "가자", "안내", "위치", "보여", "데려"])) {
+      let targetTag = tag;
+      if (!targetTag) {
+        const raw = text.replace(/[가-힣ㄱ-ㅎㅏ-ㅣ]+/g, "");
+        if (raw && raw.trim()) {
+          targetTag = raw;
+        }
+      }
+      if (targetTag && targetTag.trim()) {
+        const cleanTag = targetTag.trim();
+        return mkAction("JUMP_TO", action({ type: "JUMP_TO", targetType: "TAG", targetValue: cleanTag }),
+          `${cleanTag} 위치를 찾았습니다. 현재 화면을 해당 설비 위치로 이동하고 강조 표시합니다.`);
+      }
     }
     // 8) 그 외 → ANSWER (설명/목록/연결계통 등)
     return mkAnswer(tag, type, text);

@@ -155,6 +155,21 @@ def _extract_json(text):
 
 def make_plan(message, current_tag, history=None):
     current_tag = current_tag or "GV-101A"
+    if any(k in message for k in ["이동", "가줘", "가자", "안내", "위치", "보여", "데려"]):
+        raw = re.sub(r"[가-힣ㄱ-ㅎㅏ-ㅣ]+", "", message)
+        if raw and raw.strip():
+            return {
+                "valid": True,
+                "responseType": "ACTION",
+                "message": "%s 위치를 찾았습니다. 현재 화면을 해당 설비 위치로 이동하고 강조 표시합니다." % raw.strip(),
+                "actions": [{
+                    "params": {},
+                    "type": "JUMP_TO",
+                    "targetType": "TAG",
+                    "targetValue": raw.strip()
+                }],
+                "model": LLM_MODEL
+            }
     prompt = PLAN_PROMPT % current_tag
     if history:
         prompt += ("[이전 대화] (오래된→최근, '그거/거기/다음' 같은 후속·대명사 해석에 활용)\n"

@@ -43,6 +43,13 @@
   /* ── 이동 ────────────────────────────────────────────── */
   function jumpToTag(tag, params) {
     log("jumpToTag", tag, params); state.info = "";
+    const cleanTag = (tag || "").trim();
+    if (cleanTag && !cleanTag.includes("XXX") && !KNOWN_TAGS.has(tag) && !KNOWN_TAGS.has(cleanTag)) {
+      KNOWN_TAGS.add(tag);
+      KNOWN_TAGS.add(cleanTag);
+      state.visible.add(cleanTag);
+      state.visible.add(tag);
+    }
     if (!KNOWN_TAGS.has(tag)) { render("error"); state.selected = tag; renderTag(tag, "JUMP_TO failed · TAG_NOT_FOUND", true);
       return { ok: false, error: "TAG_NOT_FOUND", message: `${tag} 태그를 Viewer에서 찾을 수 없습니다.` }; }
     state.selected = tag;
