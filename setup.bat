@@ -39,14 +39,30 @@ echo.
 echo [3/3] Ollama 엔진 및 LLM 모델(qwen3.5:9b) 확인 중...
 where ollama >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [에러] Ollama가 설치되어 있지 않습니다.
-    echo https://ollama.com/ 에서 먼저 다운로드 및 설치를 진행해 주세요.
+    echo [알림] Ollama가 설치되어 있지 않습니다.
+    echo 자동으로 Ollama 설치 파일을 다운로드합니다... (약 200MB)
+    curl -L https://ollama.com/download/OllamaSetup.exe -o OllamaSetup.exe
+    if %errorlevel% neq 0 (
+        echo [에러] Ollama 다운로드에 실패했습니다. https://ollama.com/ 에서 직접 받아주세요.
+        pause
+        exit /b 1
+    )
+    echo.
+    echo Ollama 설치 프로그램을 실행합니다!
+    echo 팝업 창이 뜨면 [Install] 버튼을 눌러 설치를 끝까지 완료해 주세요.
+    echo *** 설치가 완전히 끝난 후 아무 키나 누르시면 모델 다운로드로 넘어갑니다 ***
+    start /wait OllamaSetup.exe
     pause
-    exit /b 1
+    
+    :: 환경변수가 갱신되지 않을 수 있으므로 절대경로 직접 지정
+    set OLLAMA_CMD="%LOCALAPPDATA%\Programs\Ollama\ollama.exe"
+) else (
+    set OLLAMA_CMD=ollama
 )
 
+echo.
 echo 모델(qwen3.5:9b) 다운로드를 시작합니다. (약 5GB, 수 분 소요)
-ollama pull qwen3.5:9b
+%OLLAMA_CMD% pull qwen3.5:9b
 if %errorlevel% neq 0 (
     echo [에러] LLM 모델 다운로드 중 문제가 발생했습니다.
     pause
