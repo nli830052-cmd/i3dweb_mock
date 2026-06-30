@@ -218,6 +218,85 @@
     return { ok: true, tag: t, radiusM: 2, message: `${t} 정비 작업 구역 표시 (반경 2m)` };
   }
 
+  /* ── [도면] 연관 P&ID 도면 표시 ─────────────────────────
+     실제 i3DWEB은 설비↔도면 링크로 P&ID를 띄움. 여기선 뷰어 위에
+     인라인 SVG P&ID(태그 강조)를 오버레이로 mock 표시한다. */
+  function showPID(tag) {
+    log("showPID", tag);
+    const t = (tag || state.selected || "GV-101A").trim();
+    const o = byTag(t);
+    state.selected = t;
+    if (KNOWN_TAGS.has(t)) state.visible.add(t);
+    const system = (o && o.system) || "냉각수 계통";
+    render("moved");                 // 씬 갱신(이때 기존 오버레이는 닫힘)
+    renderPID(t, system);            // P&ID 오버레이 열기
+    renderTag(t, "SHOW_PID · P&ID 도면", false);
+    return { ok: true, tag: t, drawing: "P&ID", system: system, message: `${t} 연관 P&ID 도면 표시 (${system})` };
+  }
+
+  function pidOverlayEl() {
+    let ov = document.getElementById("pidOverlay");
+    if (!ov) {
+      const vp = document.querySelector(".i3d-viewport") || document.getElementById("viewer");
+      if (!vp) return null;
+      ov = document.createElement("div");
+      ov.id = "pidOverlay";
+      ov.className = "pid-overlay";
+      vp.appendChild(ov);
+    }
+    return ov;
+  }
+
+  function hidePID() {
+    const ov = document.getElementById("pidOverlay");
+    if (ov) { ov.classList.remove("on"); ov.innerHTML = ""; }
+  }
+
+  function renderPID(tag, system) {
+    const ov = pidOverlayEl();
+    if (!ov) return;
+    ov.innerHTML =
+      `<div class="pid-frame">` +
+        `<div class="pid-bar">` +
+          `<span class="pid-title">📐 P&amp;ID 도면 · <b>${tag}</b> <span class="pid-sys">${system}</span></span>` +
+          `<button class="pid-close" id="pidClose" title="닫기 (도면 닫기)">×</button>` +
+        `</div>` +
+        `<div class="pid-canvas">${pidSvg(tag)}</div>` +
+        `<div class="pid-foot">연관 도면(mock) · 실제 연동 시 i3DWEB 도면 뷰어로 대체</div>` +
+      `</div>`;
+    ov.classList.add("on");
+    const c = document.getElementById("pidClose");
+    if (c) c.addEventListener("click", hidePID);
+  }
+
+  // 태그를 강조한 간단한 P&ID 스키매틱(탱크→펌프→[밸브]→열교환기 + 계장 버블)
+  function pidSvg(tag) {
+    return `<svg viewBox="0 0 560 230" class="pid-svg" xmlns="http://www.w3.org/2000/svg">
+      <line x1="72" y1="150" x2="430" y2="150" stroke="#1f4e86" stroke-width="3"/>
+      <rect x="24" y="112" width="48" height="76" rx="6" fill="#fff" stroke="#1f4e86" stroke-width="2.5"/>
+      <line x1="24" y1="128" x2="72" y2="128" stroke="#1f4e86" stroke-width="1.4"/>
+      <text x="48" y="206" text-anchor="middle" class="pid-lbl">TK-01</text>
+      <circle cx="150" cy="150" r="20" fill="#fff" stroke="#1f4e86" stroke-width="2.5"/>
+      <path d="M140 140 L140 160 L162 150 Z" fill="#1f4e86"/>
+      <text x="150" y="206" text-anchor="middle" class="pid-lbl">P-01</text>
+      <line x1="290" y1="122" x2="290" y2="98" stroke="#6b7888" stroke-width="1.2" stroke-dasharray="3 3"/>
+      <circle cx="290" cy="82" r="16" fill="#fff" stroke="#6b7888" stroke-width="1.5"/>
+      <line x1="274" y1="82" x2="306" y2="82" stroke="#6b7888" stroke-width="1"/>
+      <text x="290" y="79" text-anchor="middle" class="pid-inst">PI</text>
+      <text x="290" y="92" text-anchor="middle" class="pid-inst">101</text>
+      <rect x="260" y="120" width="60" height="60" rx="6" fill="none" stroke="#2f80ed" stroke-width="1.5" stroke-dasharray="4 3" class="pid-hot"/>
+      <path d="M270 134 L270 166 L290 150 Z" fill="#2f80ed"/>
+      <path d="M310 134 L310 166 L290 150 Z" fill="#2f80ed"/>
+      <line x1="290" y1="138" x2="290" y2="150" stroke="#2f80ed" stroke-width="2.5"/>
+      <circle cx="290" cy="134" r="6" fill="#fff" stroke="#2f80ed" stroke-width="2.5"/>
+      <text x="290" y="196" text-anchor="middle" class="pid-tag">${tag}</text>
+      <rect x="430" y="120" width="76" height="60" rx="4" fill="#fff" stroke="#1f4e86" stroke-width="2.5"/>
+      <line x1="430" y1="140" x2="506" y2="140" stroke="#1f4e86" stroke-width="1.2"/>
+      <line x1="430" y1="160" x2="506" y2="160" stroke="#1f4e86" stroke-width="1.2"/>
+      <text x="468" y="206" text-anchor="middle" class="pid-lbl">HX-301</text>
+    </svg>`;
+  }
+
   /* ── 매칭 헬퍼 ───────────────────────────────────────── */
   function matchObjects(query) {
     const q = (query || "").toLowerCase();
@@ -310,6 +389,7 @@
   }
   function render(anim, highlightSet) {
     const e = els();
+    hidePID();                 // 다른 뷰어 액션이 실행되면 열려있던 P&ID 오버레이는 닫는다
     renderTopbar();
     if (e.info) e.info.innerHTML = state.info;
     if (e.scene) {
@@ -377,7 +457,7 @@
   window.ViewerSDK = {
     jumpToTag, searchEquipment, rotateView, hide, show, isolateSystem, filterByType,
     moveToInspection, showPath, showInspectionRoute, findNearest, showWorkerPosition,
-    showWorkZone,
+    showWorkZone, showPID, hidePID,
     KNOWN_TAGS, SCENE
   };
 })();

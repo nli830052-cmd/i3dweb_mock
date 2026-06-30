@@ -100,7 +100,7 @@ def ollama_generate(prompt, num_predict=600):
 ALLOWED_ACTIONS = {
     "JUMP_TO", "SEARCH_EQUIPMENT", "ROTATE_VIEW", "HIDE_OBJECT", "SHOW_OBJECT",
     "ISOLATE_SYSTEM", "FILTER_BY_TYPE", "MOVE_TO_INSPECTION", "SHOW_PATH",
-    "SHOW_INSPECTION_ROUTE", "FIND_NEAREST", "SHOW_WORKER_POSITION", "SHOW_WORK_ZONE",
+    "SHOW_INSPECTION_ROUTE", "FIND_NEAREST", "SHOW_WORKER_POSITION", "SHOW_WORK_ZONE", "SHOW_PID",
     "QUERY_MAINTENANCE", "QUERY_CYCLE", "QUERY_SPATIAL", "QUERY_WORKFLOW", "MANUAL_RAG",
 }
 
@@ -123,6 +123,7 @@ PLAN_PROMPT = (
     '- FIND_NEAREST {}\n'
     '- SHOW_WORKER_POSITION {"targetValue":"<태그 또는 null>"}\n'
     '- SHOW_WORK_ZONE {"targetValue":"<태그 또는 null>"}\n'
+    '- SHOW_PID {"targetType":"TAG","targetValue":"<태그 또는 null>"}  // 해당 설비의 연관 P&ID 도면 표시\n'
     "[데이터 조회 — 사실을 지어내지 말 것]\n"
     '- QUERY_MAINTENANCE {"targetValue":"<태그>","field":"history|last_overhaul|gasket|leak|recurring|result|open_point"}\n'
     '- QUERY_CYCLE {"targetValue":"<태그>","field":"overdue|next_due|parts|replace"}\n'
@@ -140,6 +141,7 @@ PLAN_PROMPT = (
     "예시:\n"
     '"TG-PMP-101 확인할껀데 어디있는지 알려줘" -> {"responseType":"ACTION","message":"TG-PMP-101 위치로 이동합니다.","actions":[{"type":"JUMP_TO","targetType":"TAG","targetValue":"TG-PMP-101"}]}\n'
     '"펌프 찾아줘" -> {"responseType":"ACTION","message":"펌프를 검색합니다.","actions":[{"type":"SEARCH_EQUIPMENT","query":"펌프"}]}\n'
+    '"이 밸브 P&ID 도면 보여줘" -> {"responseType":"ACTION","message":"GV-101A 연관 P&ID 도면을 표시합니다.","actions":[{"type":"SHOW_PID","targetType":"TAG","targetValue":"GV-101A"}]}\n'
     '"이 밸브 정비 어디쯤?" -> {"responseType":"ANSWER","message":"작업 단계를 확인합니다.","actions":[{"type":"QUERY_WORKFLOW","targetValue":"GV-101A","field":"current"}]}\n'
     '"그랜드패킹 교체 절차 알려줘" -> {"responseType":"ANSWER","message":"매뉴얼을 확인합니다.","actions":[{"type":"MANUAL_RAG","query":"그랜드패킹 교체 절차","valveType":"globe"}]}\n/no_think\n\n'
 )
@@ -155,7 +157,7 @@ def _extract_json(text):
 
 def make_plan(message, current_tag, history=None):
     current_tag = current_tag or "GV-101A"
-    if any(k in message for k in ["이동", "가줘", "가자", "안내", "위치", "보여", "데려"]):
+    if any(k in message for k in ["이동", "움직", "가줘", "가자", "안내", "위치", "보여", "데려"]):
         raw = re.sub(r"[가-힣ㄱ-ㅎㅏ-ㅣ]+", "", message)
         if raw and raw.strip():
             return {
@@ -217,6 +219,25 @@ def classify_question(message, tag):
     """질문 → (category, sub, manualQuery, valveType). classifier.js 트리거와 정렬."""
     t = message or ""
     low = t.lower()
+    # ── [RAG-우선 라우터] 절차·조치·기준·방법을 '어떻게' 묻는 질문은
+    #    특정 설비의 사실(DB)이 아니라 매뉴얼 일반 지식이다 → 매뉴얼 RAG(전문 검색).
+    #    단, 특정 설비의 '이력/수치/판단'(언제 누설났나, 주기 초과?, 교체해야?)은
+    #    아래 데이터 분기로 내려보낸다 — DATA_FACT 신호가 있으면 게이트를 통과시키지 않는다.
+    PROC_WORDS = ["조치", "방안", "대처", "복구", "어떻게", "방법", "절차", "기준",
+                  "토크", "보수", "예방", "해결"]
+    DATA_FACT_WORDS = [
+        # maintenance — 이 설비의 실제 이력/사실
+        "이력", "기록", "마지막", "언제", "몇 번", "몇번", "난 적", "있었", "지난", "발생했",
+        "가스켓", "반복", "고장", "점검 결과", "정상이", "미조치", "오픈포인트", "open point",
+        # cycle — 이 설비의 주기/판단
+        "주기", "초과", "예정일", "다음 정비", "교체해야", "교체 검토", "할까", "필요한", "부품",
+        # spatial — 이 설비의 공간 측정값
+        "공간", "간섭", "사다리", "발판", "고소작업", "추락", "개구부", "높이", "2m",
+        # workflow — 이 설비의 작업오더 진행 상태
+        "단계", "체크리스트", "다음 작업", "준비사항", "점검사항", "누락", "미완료",
+    ]
+    if _any(t, PROC_WORDS) and not _any(low, DATA_FACT_WORDS):
+        return "manual", "rag", message, "globe"
     # 1) 공간/안전 (Walkinside)
     if _any(t, ["작업 공간", "공간 충분", "공간이", "간섭", "사다리", "작업 발판", "작업발판", "발판", "고소작업", "추락", "개구부", "2m 이상"]):
         if _any(t, ["추락", "개구부"]):
@@ -255,6 +276,12 @@ def classify_question(message, tag):
         if "open point" in low or "openpoint" in low or _any(t, ["미조치", "오픈포인트"]):
             return "maintenance", "openpoint", "Open Point 미조치 관리 기준", "globe"
         if "누설" in t:
+            # 그랜드패킹 외 부위(시트/디스크/플랜지/보닛/Pressure Seal)의 '조치/방법'을 물으면
+            # 설비 누설 이력(DB)이 아니라 매뉴얼 14.2 부위별 조치 기준 → 매뉴얼 RAG
+            _parts = ["시트", "디스크", "플랜지", "보닛", "pressure seal", "프레셔 씰", "프레셔씰"]
+            _acts = ["조치", "방안", "방법", "어떻게", "기준", "대처", "복구", "해결"]
+            if _any(low, _parts) and _any(t, _acts):
+                return "manual", "rag", message, "globe"
             return "maintenance", "leak", "그랜드패킹부 누설 조치", "globe"
         if _any(t, ["분해", "마지막"]):
             return "maintenance", "overhaul", "스템 점검 디스크 시트 Blue Check", "globe"
@@ -733,6 +760,8 @@ def build_chat_synthesis_prompt(message, facts_json, hits):
     return (
         "당신은 i3DWEB 설비 정비 어시스턴트입니다. 아래 [설비 데이터]와 [매뉴얼 발췌]만 근거로 답하세요.\n"
         "데이터에 없는 수치·날짜는 지어내지 말고, 매뉴얼에 없으면 일반론으로 답하지 마세요.\n"
+        "단, 설비 데이터(이력)에 특정 부위 기록이 없더라도 매뉴얼 발췌에 그 부위의 조치 기준이 있으면 그것을 근거로 답하세요. "
+        "'설비 이력에 없음'을 '매뉴얼에 조치가 없음'으로 해석하지 마세요.\n"
         "구조화된 데이터 표/리스트는 화면이 따로 보여주므로, 데이터를 그대로 나열하지 말고 '해석·판단' 위주로 간결히 쓰세요.\n"
         "반드시 아래 JSON 한 개만 출력하세요(설명/주석 금지):\n"
         '{"headline":"한 줄 핵심 판정","answer":"종합 해석 1~2문장(데이터 나열 금지)","recommendation":"권고 조치 한 줄 또는 빈 문자열"}\n/no_think\n\n'
@@ -771,7 +800,9 @@ def make_chat(message, tag, history=None):
         return {"responseType": "ANSWER", "category": "manual", "grounded": True,
                 "headline": top["section_path"], "answer": answer, "recommendation": "",
                 "data": None,
-                "sources": [{"type": "manual", "label": m["doc"], "detail": m["section_path"]} for _s, m in hits],
+                # 근거는 화면에 실제 발췌로 보여주는 top 1개만 표기(나머지 청크는 답변 생성에만 사용).
+                # "몇 개 청크를 참고했는지"는 아래 generation.chunks 로 이미 전달됨.
+                "sources": [{"type": "manual", "label": top["doc"], "detail": top["section_path"]}],
                 "manualExcerpt": {"doc": top["doc"], "sectionPath": top["section_path"], "page": top["page"], "text": _strip_crumb(top["text"])},
                 "retrieval": {"source": CHAT_SOURCE["manual"], "query": manual_query, "hitCount": len(hits), "owner": "ai"},
                 "generation": {"model": LLM_MODEL, "engine": "Ollama (로컬)", "chunks": len(hits)}}

@@ -173,7 +173,7 @@
       (res.headline ? `<div class="headline">${escapeHtml(res.headline)}</div>` : "") +     // ① 판정
       (res.message ? `<div>${escapeHtml(res.message)}</div>` : "") +
       (res.blocks && res.blocks.length ? renderBlocks(res.blocks) : detailBlock(cat.key, res)) + // ② 구조화 데이터
-      (res.answer ? `<div class="ans">${escapeHtml(res.answer)}</div>` : "") +              // ③ 종합 설명
+      (res.answer ? `<div class="ans">${mdToHtml(res.answer)}</div>` : "") +                // ③ 종합 설명(마크다운 서식)
       (res.recommendation ? `<div class="reco">▸ ${escapeHtml(res.recommendation)}</div>` : "") + // ④ 권고
       sourceBlock(res) +                                                                    // ⑤ 근거 칩
       excerptBlock(res);                                                                    // ⑤ 매뉴얼 발췌(접이식)
@@ -200,23 +200,95 @@
   /* ── 카테고리별 구조화 상세 블록 (retrieval.data 기반) ── */
   function detailBlock(key, res) {
     const d = res.retrieval && res.retrieval.data;
+
+    // ━━━━ 정비이력: 전문 테이블 UI ━━━━
     if (key === "maintenance" && d) {
-      const c = [];
-      if (d.lastOverhaul && d.lastOverhaul.date) c.push(kv("최근 분해정비", d.lastOverhaul.date));
-      if (d.leaks) c.push(kv("누설 이력", d.leaks.length + "건", d.leaks.length > 0));
-      if (d.openPoints) c.push(kv("Open Point", d.openPoints.length + "건", d.openPoints.length > 0));
-      if (d.recurring) c.push(kv("반복 이슈", d.recurring));
-      return c.length ? `<div class="card-detail">${c.join("")}</div>` : "";
+      let html = '';
+
+      // ① 핵심 지표 카드 행
+      const metrics = [];
+      if (d.lastOverhaul && d.lastOverhaul.date)
+        metrics.push(metricCard("최근 분해정비", d.lastOverhaul.date, "", "icon-wrench"));
+      if (d.leaks != null)
+        metrics.push(metricCard("누설 이력", d.leaks.length + "건", d.leaks.length > 0 ? "warn" : "ok", "icon-drop"));
+      if (d.openPoints != null)
+        metrics.push(metricCard("Open Point", d.openPoints.length + "건", d.openPoints.length > 0 ? "warn" : "ok", "icon-alert"));
+      if (metrics.length)
+        html += `<div class="maint-metrics">${metrics.join('')}</div>`;
+
+      // ② 반복 이슈 배너 (있을 때만)
+      if (d.recurring && !d.recurring.includes("없음"))
+        html += `<div class="maint-recurring"><span class="maint-recurring-icon">⚠</span><span>${escapeHtml(d.recurring)}</span></div>`;
+
+      // ③ 정비 이력 테이블
+      if (d.history && d.history.length) {
+        html += `<div class="maint-section-title">정비 이력</div>`;
+        html += `<table class="maint-table">`;
+        html += `<thead><tr><th>날짜</th><th>WO번호</th><th>작업유형</th><th>결과</th></tr></thead><tbody>`;
+        d.history.forEach(function(h) {
+          const resultCls = h.result && h.result.includes('정상') ? 'st-done' :
+                            h.result && (h.result.includes('필요') || h.result.includes('중')) ? 'st-check' : 'st-pending';
+          html += `<tr>`;
+          html += `<td class="maint-date">${escapeHtml(h.date || '-')}</td>`;
+          html += `<td class="maint-wo">${escapeHtml(h.wo || '-')}</td>`;
+          html += `<td>${escapeHtml(h.type || '-')}</td>`;
+          html += `<td><span class="b-status ${resultCls}">${escapeHtml(h.result || '-')}</span></td>`;
+          html += `</tr>`;
+          if (h.note) html += `<tr class="maint-note-row"><td colspan="4" class="maint-note">${escapeHtml(h.note)}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+
+      // ④ Open Point 테이블 (있을 때만)
+      if (d.openPoints && d.openPoints.length) {
+        html += `<div class="maint-section-title maint-warn-title">⚠ Open Point</div>`;
+        html += `<table class="maint-table">`;
+        html += `<thead><tr><th>ID</th><th>내용</th><th>조치 예정일</th><th>상태</th></tr></thead><tbody>`;
+        d.openPoints.forEach(function(o) {
+          const stCls = o.status && o.status.includes('중') ? 'st-check' : 'st-todo';
+          html += `<tr>`;
+          html += `<td class="maint-wo">${escapeHtml(o.id || '-')}</td>`;
+          html += `<td>${escapeHtml(o.desc || '-')}</td>`;
+          html += `<td class="maint-date">${escapeHtml(o.due || '-')}</td>`;
+          html += `<td><span class="b-status ${stCls}">${escapeHtml(o.status || '-')}</span></td>`;
+          html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      return html ? `<div class="maint-detail">${html}</div>` : '';
     }
+
+    // ━━━━ 정비주기: 전문 카드 UI ━━━━
     if (key === "cycle" && d) {
-      const c = [];
-      if (d.cycleMonths != null) c.push(kv("정비 주기", d.cycleMonths + "개월"));
-      if (d.lastMaintenance) c.push(kv("마지막 정비", d.lastMaintenance));
-      if (d.nextDue) c.push(kv("다음 예정", d.nextDue));
-      const extra = (d.priorityParts && d.priorityParts.length)
-        ? `<div class="card-list">우선 점검 부품: ${escapeHtml(d.priorityParts.join(", "))}</div>` : "";
-      return c.length ? `<div class="card-detail">${c.join("")}</div>${extra}` : "";
+      let html = '';
+
+      // ① 주기 상태 배너
+      const overdueFlag = d.overdue;
+      const statusLabel = overdueFlag ? '주기 초과 — 점검 필요' : '정비 주기 정상';
+      const statusCls2  = overdueFlag ? 'cycle-overdue' : 'cycle-ok';
+      html += `<div class="cycle-status ${statusCls2}"><span class="cycle-status-dot"></span>${escapeHtml(statusLabel)}</div>`;
+
+      // ② 주기 KV 테이블
+      html += `<table class="cycle-kv-table">`;
+      if (d.cycleMonths != null)
+        html += `<tr><th>정비 주기</th><td>${escapeHtml(d.cycleMonths + '개월')}</td></tr>`;
+      if (d.lastMaintenance)
+        html += `<tr><th>마지막 정비</th><td>${escapeHtml(d.lastMaintenance)}</td></tr>`;
+      if (d.nextDue)
+        html += `<tr><th>다음 예정일</th><td class="${overdueFlag ? 'cycle-td-warn' : ''}">${escapeHtml(d.nextDue)}</td></tr>`;
+      html += `</table>`;
+
+      // ③ 우선 점검 부품 (태그형)
+      if (d.priorityParts && d.priorityParts.length) {
+        html += `<div class="cycle-parts-title">우선 점검 부품</div>`;
+        html += `<div class="cycle-parts">${d.priorityParts.map(function(p) {
+          return `<span class="cycle-part-tag">${escapeHtml(p)}</span>`;
+        }).join('')}</div>`;
+      }
+      return `<div class="cycle-detail">${html}</div>`;
     }
+
+    // ━━━━ 이하 기존 카테고리 (spatial / workflow / manual / action) ━━━━
     if (key === "spatial" && d) {
       const c = [];
       if (d.clearance) {
@@ -249,6 +321,12 @@
       return `<div class="card-detail">${res.actions.map((a) => kv("액션", a.type)).join("")}</div>`;
     }
     return "";
+  }
+
+  /* 정비이력 전용 metric 카드 헬퍼 */
+  function metricCard(label, value, modifier, iconCls) {
+    const cls = modifier === 'warn' ? ' warn' : modifier === 'ok' ? ' ok' : '';
+    return `<div class="metric-card${cls}"><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div></div>`;
   }
 
   /* ── ② 구조화 블록 렌더 (list / kv / table / steps) ─────── */
@@ -326,13 +404,68 @@
     return `<div class="src"><i>근거</i> ${chips}</div>`;
   }
 
+  /* ── 마크다운(표·목록·강조) → HTML : 매뉴얼 발췌/답변을 실제 표·서식으로 ──
+     - md 파일의 파이프 표(| a | b |)를 실제 <table>로, #제목·-목록·**강조**도 서식 적용 */
+  function mdInline(s) { // s는 이미 escapeHtml된 문자열
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+  }
+  function mdToHtml(md) {
+    const lines = String(md == null ? "" : md).replace(/\r\n/g, "\n").split("\n");
+    const sep = /^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$/;          // 표 구분선 | --- | --- |
+    const cells = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+    let out = "", i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      // 1) 파이프 표 — 현재 줄에 |, 다음 줄이 구분선이면 실제 <table>
+      if (line.indexOf("|") >= 0 && i + 1 < lines.length && sep.test(lines[i + 1])) {
+        const head = cells(line); i += 2;
+        const body = [];
+        while (i < lines.length && lines[i].indexOf("|") >= 0 && lines[i].trim() !== "" && !sep.test(lines[i])) {
+          body.push(cells(lines[i])); i++;
+        }
+        out += `<table class="md-table"><thead><tr>${head.map((h) => `<th>${mdInline(escapeHtml(h))}</th>`).join("")}</tr></thead><tbody>${
+          body.map((r) => `<tr>${r.map((c) => `<td>${mdInline(escapeHtml(c))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+        continue;
+      }
+      // 2) 제목: #~#### 또는 "14.2 ..." 같은 섹션 번호 줄
+      const hm = line.match(/^\s*(#{1,6})\s+(.*)$/);
+      if (hm) { const lv = Math.min(hm[1].length, 4); out += `<div class="md-h md-h${lv}">${mdInline(escapeHtml(hm[2]))}</div>`; i++; continue; }
+      if (/^\s*\d+\.\d+/.test(line) && line.indexOf("|") < 0) { out += `<div class="md-h md-h3">${mdInline(escapeHtml(line.trim()))}</div>`; i++; continue; }
+      // 3) 인용
+      if (/^\s*>\s?/.test(line)) { out += `<blockquote class="md-quote">${mdInline(escapeHtml(line.replace(/^\s*>\s?/, "")))}</blockquote>`; i++; continue; }
+      // 4) 목록 (순서없음 / 순서있음)
+      if (/^\s*[-*]\s+/.test(line)) {
+        const items = []; while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*]\s+/, "")); i++; }
+        out += `<ul class="md-ul">${items.map((t) => `<li>${mdInline(escapeHtml(t))}</li>`).join("")}</ul>`; continue;
+      }
+      if (/^\s*\d+\.\s+/.test(line)) {
+        const items = []; while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*\d+\.\s+/, "")); i++; }
+        out += `<ol class="md-ol">${items.map((t) => `<li>${mdInline(escapeHtml(t))}</li>`).join("")}</ol>`; continue;
+      }
+      // 5) 빈 줄
+      if (line.trim() === "") { i++; continue; }
+      // 6) 문단 — 연속된 일반 줄을 <br>로 묶음
+      const para = [];
+      while (i < lines.length && lines[i].trim() !== "" && !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i])
+             && !/^\s*#{1,6}\s/.test(lines[i]) && !/^\s*>\s?/.test(lines[i]) && lines[i].indexOf("|") < 0
+             && !/^\s*\d+\.\d+/.test(lines[i])) {
+        para.push(lines[i]); i++;
+      }
+      if (para.length) out += `<p class="md-p">${para.map((p) => mdInline(escapeHtml(p))).join("<br>")}</p>`;
+      else { out += `<p class="md-p">${mdInline(escapeHtml(lines[i]))}</p>`; i++; }   // 표 아닌 단독 | 줄 방어
+    }
+    return out;
+  }
+
   /* ── ⑤ 매뉴얼 발췌 (접이식 — RAG 근거 실재 증명) ────────── */
   function excerptBlock(res) {
     const e = res.manualExcerpt;
     if (!e || !e.text) return "";
     const cite = (e.doc ? e.doc + (e.sectionPath ? " · " + e.sectionPath : "") : (e.sectionPath || ""));
     return `<details class="excerpt"><summary>📄 근거 매뉴얼 발췌 · ${escapeHtml(cite)}</summary>` +
-      `<pre>${escapeHtml(e.text)}</pre></details>`;
+      `<div class="excerpt-body">${mdToHtml(e.text)}</div></details>`;
   }
 
   function addUserMsg(text) {

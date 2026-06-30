@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>i3DWEB · AI Assistant</title>
-<link rel="stylesheet" href="src/ui/styles.css" />
+<link rel="stylesheet" href="src/ui/styles.css?v=5" />
 </head>
 <body>
 
@@ -147,6 +147,7 @@
             <button data-ex="이 밸브는 2m 이상 고소작업에 해당돼?">고소작업 (공간)</button>
             <button data-ex="이 밸브 주변에 추락 위험이나 개구부가 있어?">추락위험 (공간)</button>
             <button data-ex="이 밸브 정비 구역을 화면에 표시해줘">정비구역 (ACTION)</button>
+            <button data-ex="이 밸브 P&ID 도면 보여줘">P&ID 도면 (PID)</button>
             <button data-ex="지금 이 밸브 정비는 어느 단계까지 완료됐어?">작업단계 (WO)</button>
             <button data-ex="다음 작업 단계 알려줘">다음단계 (WO)</button>
             <button data-ex="현재 단계에서 확인해야 할 체크리스트 보여줘">체크리스트 (WO)</button>
@@ -195,13 +196,16 @@
 </section>
 
 <!-- 모듈 로드 순서: AI(백엔드) → Viewer(SDK) → ActionExecutor(연결고리) → UI(오케스트레이션) -->
-<script src="src/ai/ragClient.js?v=3"></script>         <!-- [AI팀]   RagClient (매뉴얼 RAG 백엔드) -->
-<script src="src/ai/maintenanceDb.js?v=3"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS) -->
-<script src="src/ai/workflowDb.js?v=3"></script>        <!-- [AI팀]   WorkflowDB (mock 작업오더) -->
-<script src="src/ai/classifier.js?v=3"></script>        <!-- [AI팀]   AiBackend -->
-<script src="src/viewer/mockViewer.js?v=3"></script>    <!-- [솔루션팀] ViewerSDK -->
-<script src="src/viewer/spatialDb.js?v=3"></script>     <!-- [솔루션팀] SpatialDB (mock Walkinside 공간) -->
-<script src="src/core/actionExecutor.js?v=3"></script>  <!-- [연결고리] ActionExecutor -->
-<script src="src/ui/app.js?v=3"></script>               <!-- [UI/Front] 진입점 + 렌더링 -->
+<script>
+  window.AI_SERVER_BASE_URL = "http://localhost:8090";
+</script>
+<script src="src/ai/ragClient.js?v=5"></script>         <!-- [AI팀]   RagClient (매뉴얼 RAG 백엔드) -->
+<script src="src/ai/maintenanceDb.js?v=5"></script>     <!-- [AI팀]   MaintenanceDB (mock CMMS) -->
+<script src="src/ai/workflowDb.js?v=5"></script>        <!-- [AI팀]   WorkflowDB (mock 작업오더) -->
+<script src="src/ai/classifier.js?v=5"></script>        <!-- [AI팀]   AiBackend -->
+<script src="src/viewer/mockViewer.js?v=5"></script>    <!-- [솔루션팀] ViewerSDK -->
+<script src="src/viewer/spatialDb.js?v=5"></script>     <!-- [솔루션팀] SpatialDB (mock Walkinside 공간) -->
+<script src="src/core/actionExecutor.js?v=5"></script>  <!-- [연결고리] ActionExecutor -->
+<script src="src/ui/app.js?v=5"></script>               <!-- [UI/Front] 진입점 + 렌더링 -->
 </body>
 </html>

@@ -14,7 +14,10 @@
   "use strict";
 
   // 태그: TG-BRG-002, GV-101A, TGLOP-001, HX-301 등
-  const TAG_RE = /\b[A-Z]{1,5}(?:-[A-Z0-9]{1,5}){1,2}\b/i;
+  // TAG_RE: 최대 4-segment 태그 매칭 (예: GV-101A-3DF-D11)
+  const TAG_RE = /\b[A-Z]{1,5}(?:-[A-Z0-9]{1,5}){1,4}\b/i;
+  // DB에 등록된 base tag 목록 (가장 짧은 것부터 순서 보장용)
+  const BASE_TAGS = ["GV-101A", "GV-102A", "TG-VLV-205", "TG-BRG-002", "TG-LOP-001", "HX-301", "TK-401", "MT-501"];
   const TYPE_KO = { "펌프": "PUMP", "밸브": "VALVE", "모터": "MOTOR", "베어링": "BEARING", "열교환기": "HEATEX", "탱크": "TANK" };
   const RESPONSE_TYPES = ["ANSWER", "ACTION", "ANSWER_WITH_ACTION"];
 
@@ -30,7 +33,30 @@
   }
   function extractTag(text) {
     const m = text.toUpperCase().match(TAG_RE);
-    return m ? m[0] : null;
+    if (!m) return null;
+    return normalizeTag(m[0]);
+  }
+  /**
+   * 입력 태그에서 DB base tag를 추출.
+   * 예) "GV-101A-3DF" → "GV-101A", "GV-101A-3DF-D11" → "GV-101A"
+   * DB에 등록된 태그와 prefix 비교 후 가장 긴 매칭 반환. 없으면 원본 반환.
+   */
+  function normalizeTag(raw) {
+    if (!raw) return raw;
+    const upper = raw.toUpperCase();
+    // MaintenanceDB RECORDS 키 우선 조회 (런타임에 동적으로 확장될 수 있음)
+    const dbKeys = (window.MaintenanceDB && window.MaintenanceDB.RECORDS)
+      ? Object.keys(window.MaintenanceDB.RECORDS)
+      : BASE_TAGS;
+    // 가장 긴 prefix 매칭 우선
+    let best = null;
+    dbKeys.forEach(function(k) {
+      const ku = k.toUpperCase();
+      if (upper === ku || upper.startsWith(ku + "-")) {
+        if (!best || k.length > best.length) best = k;
+      }
+    });
+    return best || raw;
   }
   const has = (text, words) => words.some((w) => text.includes(w));
   const action = (a) => Object.assign({ params: {} }, a);
@@ -74,6 +100,12 @@
       const angle = dir === "back" ? 180 : 90;
       return mkAction("ROTATE_VIEW", action({ type: "ROTATE_VIEW", params: { direction: dir, angle: angle } }),
         `선택한 장비의 ${dir === "back" ? "후면" : "측면"} 방향으로 View를 전환합니다. 장비 중심 기준 ${angle}도 회전합니다.`);
+    }
+    // 5.5) P&ID 도면 표시 — 해당 설비의 연관 도면 ("도면 보여줘"의 "보여"가 JUMP로 가기 전에 가로챔)
+    if (/도면|피앤아이디|계장도|공정도/.test(text) || /p\s*&\s*id|\bpid\b/i.test(text)) {
+      const t = tag || (request.viewerContext && request.viewerContext.currentTag) || null;
+      return mkAction("SHOW_PID", action({ type: "SHOW_PID", targetType: t ? "TAG" : "SELECTED", targetValue: t }),
+        `${t || "선택한 설비"}의 연관 P&ID 도면을 표시합니다.`);
     }
     // 6) 검색 (태그 없이 이름/타입으로 찾기) — "어디"는 모호해 규칙에서 제외(LLM plan에 위임)
     if (has(text, ["찾아", "검색"]) && !tag) {
@@ -146,7 +178,7 @@
     }
 
     // 7) 이동 (태그 기반 또는 자유 입력 태그)
-    if (has(text, ["이동", "가줘", "가자", "안내", "위치", "보여", "데려"])) {
+    if (has(text, ["이동", "움직", "가줘", "가자", "안내", "위치", "보여", "데려"])) {
       let targetTag = tag;
       if (!targetTag) {
         const raw = text.replace(/[가-힣ㄱ-ㅎㅏ-ㅣ]+/g, "");
@@ -250,11 +282,14 @@
       answer = `다음 정비 예정일은 ${rec.nextDue}입니다.` +
         (rec.leaks.length ? " 최근 누설 이력 때문에 일반 주기보다 우선 점검 대상으로 분류되었습니다." : "");
     } else { // 주기 초과 여부
-      const due = addMonths(rec.lastMaintenance, rec.cycleMonths);
-      const overdue = new Date() > due;
+      // DB에 nextDue가 있으면 그 값을 우선 사용, 없으면 동적 계산
+      const dueDateStr = rec.nextDue || fmtDate(addMonths(rec.lastMaintenance, rec.cycleMonths));
+      const overdue = new Date() > new Date(dueDateStr);
       answer = `마지막 정비일은 ${rec.lastMaintenance}이고 기준 정비 주기는 ${rec.cycleMonths}개월입니다. ` +
-        (overdue ? "현재 기준으로 정비 주기가 초과되어 점검 대상입니다." : `현재 기준 정비 주기 도래 전입니다. (다음 예정 ${fmtDate(due)})`);
+        (overdue ? "현재 기준으로 정비 주기가 초과되어 점검 대상입니다." : `현재 기준 정비 주기 도래 전입니다. (다음 예정 ${dueDateStr})`);
     }
+    // nextDue: DB 값 우선, 없으면 동적 계산
+    const nextDueResolved = rec.nextDue || fmtDate(addMonths(rec.lastMaintenance, rec.cycleMonths));
     return { responseType: "ANSWER", message: `${tag} 정비 주기를 조회합니다.`, answer: answer, actions: [],
       confidence: 0.85, grounded: true,
       sources: [
@@ -262,7 +297,8 @@
         { documentName: "정비 지침서", section: rec.name, page: null }
       ],
       retrieval: { source: "CMMS·정비주기 DB", query: `tag=${tag}`, hitCount: rec.history.length,
-        data: { cycleMonths: rec.cycleMonths, lastMaintenance: rec.lastMaintenance, nextDue: rec.nextDue, priorityParts: rec.priorityParts, leaks: rec.leaks } } };
+        data: { cycleMonths: rec.cycleMonths, lastMaintenance: rec.lastMaintenance, nextDue: nextDueResolved,
+                priorityParts: rec.priorityParts, leaks: rec.leaks, overdue: new Date() > new Date(nextDueResolved) } } };
   }
 
   /* ── 6차: 현재 작업 단계 질의 판별 + 작업오더 기반 답변 ── */
@@ -410,7 +446,7 @@
   /* ── LLM이 생성한 action JSON(plan)을 실행 → 응답 객체 ──── */
   const VIEWER_TYPES = ["JUMP_TO", "SEARCH_EQUIPMENT", "ROTATE_VIEW", "HIDE_OBJECT", "SHOW_OBJECT",
     "ISOLATE_SYSTEM", "FILTER_BY_TYPE", "MOVE_TO_INSPECTION", "SHOW_PATH",
-    "SHOW_INSPECTION_ROUTE", "FIND_NEAREST", "SHOW_WORKER_POSITION", "SHOW_WORK_ZONE"];
+    "SHOW_INSPECTION_ROUTE", "FIND_NEAREST", "SHOW_WORKER_POSITION", "SHOW_WORK_ZONE", "SHOW_PID"];
 
   async function executePlan(plan, request) {
     const text = request.message || "";

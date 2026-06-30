@@ -123,5 +123,13 @@
     call: (a) => ViewerSDK.showWorkZone(a.targetValue)
   });
 
+  // ── [도면] 연관 P&ID 도면 표시 ───────────────────────────
+  register("SHOW_PID", {
+    method: "showPID",
+    summary: (a) => q(a.targetValue || "선택"),
+    args: (a) => ({ targetValue: a.targetValue }),
+    call: (a) => ViewerSDK.showPID(a.targetValue)
+  });
+
   window.ActionExecutor = { register, executeAction, describe };
 })();
