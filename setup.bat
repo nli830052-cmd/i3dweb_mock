@@ -67,13 +67,31 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo 모델(qwen3.5:9b) 다운로드를 시작합니다. (약 5GB, 수 분 소요)
+echo [Ollama 버전 확인] (qwen3.5:9b 는 Ollama 0.17.1 이상 필요)
+%OLLAMA_CMD% --version
+
+:: 이미 받아져 있으면 건너뜀
+%OLLAMA_CMD% list 2>nul | findstr /i "qwen3.5:9b" >nul
+if !errorlevel! equ 0 (
+    echo [알림] qwen3.5:9b 모델이 이미 설치되어 있습니다. 다운로드를 건너뜁니다.
+    goto :done
+)
+
+echo.
+echo 모델(qwen3.5:9b) 다운로드를 시작합니다. (약 6.6GB, 수 분 소요)
 %OLLAMA_CMD% pull qwen3.5:9b
-if %errorlevel% neq 0 (
-    echo [에러] LLM 모델 다운로드 중 문제가 발생했습니다.
+if !errorlevel! neq 0 (
+    echo.
+    echo [에러] LLM 모델 다운로드에 실패했습니다. 위에 표시된 Ollama 메시지를 확인하세요.
+    echo   - "requires a newer version" 이면: Ollama 가 구버전입니다.
+    echo       https://ollama.com 에서 최신 버전으로 재설치 후 다시 실행하세요.
+    echo   - 네트워크/타임아웃이면: 인터넷 연결 확인 후 setup.bat 을 다시 실행하세요.
+    echo       (이미 받은 부분은 이어받기 되므로 반복 실행해도 됩니다.)
     pause
     exit /b 1
 )
+
+:done
 
 echo.
 echo ===================================================
