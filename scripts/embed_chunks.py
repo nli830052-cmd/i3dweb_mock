@@ -12,10 +12,11 @@ out:    data/manual_index.npy (벡터), data/manual_index.meta.json (메타)
 import json, os
 import numpy as np
 
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_NAME = "BAAI/bge-m3"     # i3dweb_chatbot과 동일
-CHUNKS = "data/manual_chunks.json"
-VEC_OUT = "data/manual_index.npy"
-META_OUT = "data/manual_index.meta.json"
+CHUNKS = os.path.join(_ROOT, "data", "manual_chunks.json")
+VEC_OUT = os.path.join(_ROOT, "data", "manual_index.npy")
+META_OUT = os.path.join(_ROOT, "data", "manual_index.meta.json")
 META_KEYS = ("id", "valve_type", "doc", "section_no", "section_path", "page", "revision", "heading", "text")
 
 def main():

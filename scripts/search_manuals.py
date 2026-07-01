@@ -9,12 +9,14 @@ usage:
   python scripts/search_manuals.py                      # 샘플 질의 데모
   python scripts/search_manuals.py "그랜드패킹 교체 기준" globe
 """
-import json, sys
+import json, os, sys
 import numpy as np
 
+# 실행 위치(cwd)와 무관하게 repo 루트의 data/ 를 찾도록 스크립트 기준 절대경로 사용
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_NAME = "BAAI/bge-m3"
-VEC = "data/manual_index.npy"
-META = "data/manual_index.meta.json"
+VEC = os.path.join(_ROOT, "data", "manual_index.npy")
+META = os.path.join(_ROOT, "data", "manual_index.meta.json")
 TOP_K = 5
 MIN_SCORE = 0.30   # i3dweb_chatbot 동일
 

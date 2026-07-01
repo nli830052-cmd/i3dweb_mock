@@ -20,7 +20,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import search_manuals as sm  # noqa: E402
 
 PORT = 8090   # 8000(i3dweb_chatbot)/8077(ollama) 점유 회피
-DB_PATH = "data/app.db"
+# 실행 위치와 무관하게 repo 루트의 data/app.db 를 찾도록 절대경로 사용
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "app.db")
 RAG_DOC = "(절차-표준-018) Globe Valve 정비"   # 데이터 질문 근거로 인용할 보충본 doc(파일명)
 OLLAMA_URL = "http://localhost:11434"   # 로컬 Ollama
 LLM_MODEL = "qwen3.5:9b"                 # 답변 생성 LLM (Apache 2.0)
