@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
 echo ===================================================
 echo i3DWEB AI 백엔드 전체 셋업 스크립트 (All-in-One)
@@ -41,9 +42,14 @@ where ollama >nul 2>nul
 if %errorlevel% neq 0 (
     echo [알림] Ollama가 설치되어 있지 않습니다.
     echo 자동으로 Ollama 설치 파일을 다운로드합니다... (약 200MB)
-    curl -L https://ollama.com/download/OllamaSetup.exe -o OllamaSetup.exe
-    if %errorlevel% neq 0 (
+    curl -f -L https://ollama.com/download/OllamaSetup.exe -o OllamaSetup.exe
+    if !errorlevel! neq 0 (
         echo [에러] Ollama 다운로드에 실패했습니다. https://ollama.com/ 에서 직접 받아주세요.
+        pause
+        exit /b 1
+    )
+    if not exist "OllamaSetup.exe" (
+        echo [에러] Ollama 설치 파일이 생성되지 않았습니다. https://ollama.com/ 에서 직접 받아주세요.
         pause
         exit /b 1
     )
