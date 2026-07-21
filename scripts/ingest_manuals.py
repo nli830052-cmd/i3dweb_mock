@@ -29,6 +29,8 @@ def valve_type_of(fname):
         return "gate"
     if "globe" in n or "glove" in n:   # 'glove'는 globe 오타 허용
         return "globe"
+    if "pump" in n or "펌프" in n:
+        return "pump"
     return "unknown"
 
 def clean_html(text):
@@ -160,7 +162,7 @@ def process_md(path):
     text = clean_html(raw)
     fname = os.path.basename(path)
     vt = valve_type_of(fname)
-    vlabel = ("Gate" if vt == "gate" else "Globe" if vt == "globe" else "?") + " Valve 보충기준"
+    vlabel = ("Gate" if vt == "gate" else "Globe" if vt == "globe" else "Centrifugal Pump" if vt == "pump" else "?") + " 보충기준"
     doc = os.path.splitext(fname)[0]
 
     # H2 제목(있으면) + 헤딩(#/##/###) 섹션 분리
@@ -216,10 +218,14 @@ def main():
         fname = os.path.basename(f)
         vt = valve_type_of(fname)
         did = doc_id_of(fname)
-        vlabel = ("Gate" if vt == "gate" else "Globe" if vt == "globe" else "?") + " Valve 정비"
+        vlabel = ("Gate" if vt == "gate" else "Globe" if vt == "globe" else "Centrifugal Pump" if vt == "pump" else "?") + " 정비"
         doc = fitz.open(f)
         items = extract_items(doc)
         chunks = build_chunks(items, vt, did, vlabel)
+        if not chunks:
+            print("=" * 70)
+            print("%s  (valve=%s, doc=%s, pages=%d) - 0 chunks, skipped" % (fname, vt, did, doc.page_count))
+            continue
         all_chunks.extend(chunks)
         sizes = [c["n_chars"] for c in chunks]
         print("=" * 70)

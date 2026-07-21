@@ -131,5 +131,106 @@
     call: (a) => ViewerSDK.showPID(a.targetValue)
   });
 
+  // ══ 솔루션팀 액션 인터페이스 (docs/AI 채팅 구현.xlsx) ══════
+  // ON/OFF는 params.on(true/false). 생략 시 켜기(true)로 간주.
+  const onOf = (a) => !(a.params && a.params.on === false);
+
+  // 뷰 프리셋 4종 → presetView(kind, tag)
+  [["TOP_VIEW", "top", "topView"], ["FRONT_VIEW", "front", "frontView"],
+   ["SIDE_VIEW", "side", "sideView"], ["ISO_VIEW", "iso", "isoView"]].forEach(([type, kind, method]) => {
+    register(type, {
+      method: method,
+      summary: (a) => q(a.targetValue || "선택"),
+      args: (a) => ({ targetType: a.targetType, targetValue: a.targetValue }),
+      call: (a) => ViewerSDK.presetView(kind, a.targetValue)
+    });
+  });
+  register("HOME", {
+    method: "home", summary: () => "", args: () => ({}),
+    call: () => ViewerSDK.home()
+  });
+
+  // 단면(클리핑)
+  register("CLIP", {
+    method: "clip",
+    summary: (a) => `${q(a.targetValue || "선택")}, ${onOf(a) ? "ON" : "OFF"}`,
+    args: (a) => ({ targetValue: a.targetValue, on: onOf(a) }),
+    call: (a) => ViewerSDK.clip(a.targetValue, onOf(a))
+  });
+  register("CLIP_AXIS", {
+    method: "clipAxis", summary: (a) => q(a.targetValue),
+    args: (a) => ({ axis: a.targetValue }),
+    call: (a) => ViewerSDK.clipAxis(a.targetValue)
+  });
+  register("CLIP_FLIP", {
+    method: "clipFlip", summary: () => "", args: () => ({}),
+    call: () => ViewerSDK.clipFlip()
+  });
+  register("CLIP_SIZE", {
+    method: "clipSize", summary: (a) => String(a.targetValue),
+    args: (a) => ({ size: a.targetValue }),
+    call: (a) => ViewerSDK.clipSize(a.targetValue)
+  });
+
+  // 표시/숨김/선택
+  register("SHOW_ONLY", {
+    method: "showOnly",
+    summary: (a) => `${a.targetType || "TAG"}:${q(a.targetValue)}`,
+    args: (a) => ({ by: a.targetType || "TAG", value: a.targetValue }),
+    call: (a) => ViewerSDK.showOnly({ by: a.targetType || "TAG", value: a.targetValue })
+  });
+  register("HIDE", {
+    method: "hide",
+    summary: (a) => `${a.targetType || "TAG"}:${q(a.targetValue)}`,
+    args: (a) => ({ by: a.targetType || "TAG", value: a.targetValue }),
+    call: (a) => ViewerSDK.hide({ by: a.targetType || "TAG", value: a.targetValue })
+  });
+  register("HIDE_ALL", {
+    method: "hideAll", summary: () => "", args: () => ({}),
+    call: () => ViewerSDK.hideAll()
+  });
+  register("SHOW_ALL", {
+    method: "showAll", summary: () => "", args: () => ({}),
+    call: () => ViewerSDK.show({ value: "ALL" })
+  });
+  register("UNSELECT_ALL", {
+    method: "unselectAll", summary: () => "", args: () => ({}),
+    call: () => ViewerSDK.unselectAll()
+  });
+
+  // 화면 요소
+  register("AVATAR", {
+    method: "avatar", summary: (a) => (onOf(a) ? "ON" : "OFF"),
+    args: (a) => ({ on: onOf(a) }),
+    call: (a) => ViewerSDK.avatar(onOf(a))
+  });
+  register("KEY_MAP", {
+    method: "keyMap", summary: (a) => (onOf(a) ? "ON" : "OFF"),
+    args: (a) => ({ on: onOf(a) }),
+    call: (a) => ViewerSDK.keyMap(onOf(a))
+  });
+
+  // 연계 화면
+  register("PID", {
+    method: "showPID",
+    summary: (a) => `${q(a.targetValue || "선택")}, ${onOf(a) ? "ON" : "OFF"}`,
+    args: (a) => ({ targetValue: a.targetValue, on: onOf(a) }),
+    call: (a) => onOf(a)
+      ? ViewerSDK.showPID(a.targetValue)
+      : (ViewerSDK.hidePID(), { ok: true, message: "P&ID 도면 닫힘" })
+  });
+  register("MONITORING", {
+    method: "monitoring",
+    summary: (a) => `${q(a.targetValue || "선택")}, ${onOf(a) ? "ON" : "OFF"}`,
+    args: (a) => ({ targetValue: a.targetValue, on: onOf(a) }),
+    call: (a) => ViewerSDK.monitoring(a.targetValue, onOf(a))
+  });
+  register("SEARCH", {
+    method: "search",
+    summary: (a) => q(a.targetValue),
+    args: (a) => ({ query: a.targetValue }),
+    call: (a) => ViewerSDK.searchEquipment(a.targetValue)
+  });
+
   window.ActionExecutor = { register, executeAction, describe };
 })();

@@ -10,14 +10,14 @@
   "use strict";
 
   const RECORDS = {
-    "GV-101A": {
-      tag: "GV-101A", name: "글로브 밸브",
-      currentStage: "분해 전 준비 단계 완료, 밸브 몸체 분해 전",
-      nextStage: "구동모터 분해",
-      nextStepDetail: "밸브를 Full Close 상태로 놓고 구동모터 고정볼트를 분해하는 것입니다. 작업 전 전원 차단과 Red Tag 상태를 다시 확인하세요.",
-      checklist: ["전원 차단 확인", "Red Tag 확인", "배관 배수 확인", "Match Mark 표시", "공기구 준비", "작업구역 설정"],
-      prepIncomplete: ["Match Mark 표시", "보닛-바디 플랜지 간격 측정"],
-      assemblyMissing: ["배관 내부 세척 확인", "부품 표면 스크래치 확인"]
+    "TG-PMP-101": {
+      tag: "TG-PMP-101", name: "원심 펌프",
+      currentStage: "분해 전 준비 단계 완료, 펌프 몸체 분해 전",
+      nextStage: "커플링 허브 분리 및 펌프 몸체 인양",
+      nextStepDetail: "커플링 플랜지 볼트를 풀어 모터와 축을 분리하고, 베어링 하우징 아이볼트에 와이어를 걸어 호이스트로 펌프 몸체를 들어 올려 이동 작업대 위에 거치시킵니다.",
+      checklist: ["전원 차단 및 LOTO 확인", "배수 밸브 오픈 및 배수", "보조 배관 및 냉각수 라인 해체", "커플링 가드 제거", "Match Mark 표시", "인양 와이어 및 호이스트 준비"],
+      prepIncomplete: ["Match Mark 표시", "커플링 면간 거리 측정"],
+      assemblyMissing: ["축 휨 측정 확인", "베어링 하우징 내부 청소 및 윤활유 보충"]
     },
     "TG-VLV-205": {
       tag: "TG-VLV-205", name: "제어 밸브",

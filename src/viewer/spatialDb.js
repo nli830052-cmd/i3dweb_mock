@@ -12,10 +12,9 @@
   "use strict";
 
   const SPATIAL = {
-    "GV-101A": { clearance: { front: 1.2, right: 0.8 }, height: 2.3, fallHazard: { exists: true, dir: "좌측", distM: 2, type: "개구부 위험 구역" } },
+    "TG-PMP-101": { clearance: { front: 1.2, right: 0.8 }, height: 2.3, fallHazard: { exists: true, dir: "우측", distM: 1.5, type: "모터 베이스 하부 배관 개구부" } },
     "TG-VLV-205": { clearance: { front: 1.5, right: 1.2 }, height: 1.6, fallHazard: { exists: false } },
-    "GV-102A": { clearance: { front: 1.0, right: 0.6 }, height: 0.9, fallHazard: { exists: false } },
-    "TG-PMP-101": { clearance: { front: 1.4, right: 1.0 }, height: 1.1, fallHazard: { exists: false } }
+    "GV-102A": { clearance: { front: 1.0, right: 0.6 }, height: 0.9, fallHazard: { exists: false } }
   };
 
   function query(tag) { return SPATIAL[tag] || null; }
